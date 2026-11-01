@@ -141,7 +141,6 @@ export default function Question({ question, data, reponses, onChange, erreur, l
   const cleP = question.id + SUFFIXE_PRECISION;
   const idP = `q-${cleP}`;
   const afficherPrecision = precisionVisible(question, valeur, data);
-  const alerte = question.aide_si && [].concat(valeur || []).some((v) => question.aide_si.valeurs.includes(v));
 
   return (
     <div className="bloc-question">
@@ -160,24 +159,6 @@ export default function Question({ question, data, reponses, onChange, erreur, l
           <Compteur valeur={reponses[cleP]} max={MAX_PRECISION} />
         </div>
       )}
-      <div aria-live="polite">
-        {alerte && (
-          <div className="alerte-aide">
-            <p className="alerte-titre">{question.aide_si.titre}</p>
-            <p>{question.aide_si.texte}</p>
-            <ul>
-              {question.aide_si.contacts.map((c) => (
-                <li key={c.numero}>
-                  <a className="numero" href={`tel:${c.numero}`}>
-                    {c.numero}
-                  </a>{' '}
-                  {c.texte}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-      </div>
     </div>
   );
 }

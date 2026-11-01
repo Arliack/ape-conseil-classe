@@ -1,12 +1,8 @@
-// Outils communs aux tests : chargement du JSON et du script Apps Script dans une VM Node.
+// Outils communs aux tests : chargement du script Apps Script dans une VM Node.
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 
 const racine = new URL('../', import.meta.url);
-
-export function chargerDonnees() {
-  return JSON.parse(readFileSync(new URL('src/data/questionnaires.json', racine), 'utf8'));
-}
 
 /**
  * Exécute apps-script/Code.gs dans un contexte isolé. Les services Google sont remplacés par
@@ -26,6 +22,17 @@ export function chargerAppsScript() {
   vm.createContext(contexte);
   vm.runInContext(code, contexte, { filename: 'Code.gs' });
   return contexte;
+}
+
+/**
+ * Questionnaire construit à partir des questions et réglages de départ de Code.gs : c'est ce que
+ * publie « APE > Publier les questions » sur un classeur fraîchement installé.
+ */
+export function questionnaireExemple() {
+  const gs = chargerAppsScript();
+  const res = gs.construireQuestionnaire_(gs.QUESTIONS_DEPART, gs.configDepart_(), 'exemple');
+  if (res.erreurs.length) throw new Error('Questions de départ invalides : ' + res.erreurs.join(' / '));
+  return JSON.parse(JSON.stringify(res.data));
 }
 
 /** Générateur pseudo-aléatoire reproductible (mulberry32). */

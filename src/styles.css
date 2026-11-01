@@ -95,10 +95,9 @@ h2 { font-size: 1.5rem; font-weight: 600; }
 .liste-donnees li { margin-bottom: 8px; }
 
 /* Accueil */
-.choix-public { list-style: none; padding: 0; margin: 24px 0; display: grid; gap: 16px; }
-@media (min-width: 560px) { .choix-public { grid-template-columns: 1fr 1fr; } }
+.choix-public { margin: 24px 0 8px; }
 .bouton-public { width: 100%; font-size: 1.25rem; padding: 18px 16px; }
-.choix-public .note { margin: 8px 0 0; }
+@media (min-width: 560px) { .bouton-public { width: auto; min-width: 320px; } }
 
 /* Boutons (angle 4 px, texte noir sur couleur) */
 .bouton {
@@ -172,17 +171,6 @@ input[type='text']:focus, select:focus, textarea:focus { border-color: var(--tea
 .en-erreur input[type='text'], .en-erreur select, .en-erreur textarea, .en-erreur .pastille span { border-color: var(--erreur); }
 .erreur-champ { margin: 6px 0 0; color: var(--erreur); font-weight: 700; font-size: .9375rem; }
 
-.alerte-aide { margin: 12px 0 0; padding: 16px; border-radius: 8px; background: var(--paper-soft); border-left: 6px solid var(--teal); }
-.alerte-aide p { margin: 0 0 8px; }
-.alerte-titre { font-weight: 700; font-size: 1.125rem; }
-.alerte-aide ul { margin: 0; padding: 0; list-style: none; }
-.alerte-aide li { margin: 8px 0 0; }
-.numero {
-  display: inline-block; min-width: 72px; padding: 6px 10px; margin-right: 6px;
-  background: var(--sun); color: var(--ink); font-weight: 700; font-size: 1.125rem;
-  text-align: center; text-decoration: none; border-radius: 4px;
-}
-
 /* Messages */
 .message { border-radius: 4px; padding: 12px 16px; margin: 0 0 16px; }
 .message p { margin: 0 0 4px; }
@@ -196,6 +184,9 @@ input[type='text']:focus, select:focus, textarea:focus { border-color: var(--tea
 .piege { position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden; }
 
 .merci { padding-top: 16px; }
+.actions-merci { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 24px; }
+@media (max-width: 559px) { .actions-merci .bouton { flex: 1 1 100%; } }
+.chargement { color: var(--ink-muted); font-weight: 600; padding: 24px 0; }
 
 .pied {
   max-width: 720px; margin: 0 auto; padding: 16px 16px 32px;

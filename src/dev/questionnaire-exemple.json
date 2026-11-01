@@ -1,0 +1,272 @@
+{
+  "version": "exemple",
+  "site": {
+    "association": "APE du collège Raymond Queneau",
+    "college": "Collège Raymond Queneau",
+    "contact": "ape.queneau@gmail.com",
+    "prochain_conseil": "Les conseils de classe du 1er trimestre ont lieu en décembre 2026 (dates à confirmer).",
+    "conservation": "Les réponses sont supprimées à la fin de l'année scolaire, au plus tard le 31 août 2027."
+  },
+  "echelle4": [
+    "Très bien",
+    "Bien",
+    "Moyen",
+    "Pas bien"
+  ],
+  "precision_echelle4": [
+    "Moyen",
+    "Pas bien"
+  ],
+  "listes": {
+    "classes": [
+      "6e A",
+      "6e B",
+      "6e C",
+      "6e D",
+      "5e A",
+      "5e B",
+      "5e C",
+      "4e A",
+      "4e B",
+      "4e C",
+      "4e D",
+      "3e A",
+      "3e B",
+      "3e C"
+    ],
+    "matieres": [
+      "Français",
+      "Mathématiques",
+      "Histoire-géographie / EMC",
+      "Anglais",
+      "LV2 (espagnol, allemand…)",
+      "SVT",
+      "Physique-chimie",
+      "Technologie",
+      "Arts plastiques",
+      "Éducation musicale",
+      "EPS",
+      "Latin"
+    ]
+  },
+  "questionnaires": {
+    "parents": {
+      "titre": "Questionnaire parents",
+      "intro": "Vos réponses sont lues par les délégués de parents pour préparer le conseil de classe. Le nom de votre enfant est facultatif et n'apparaît jamais dans la synthèse.",
+      "precision_libelle": "Précisez si vous le souhaitez",
+      "merci": "Merci pour vos réponses ! Les délégués de parents vont les lire pour préparer le conseil de classe.",
+      "themes": [
+        {
+          "id": "enfant",
+          "titre": "Votre enfant",
+          "intro": "Si vous avez plusieurs enfants au collège, répondez pour le premier : vous pourrez ensuite répondre pour un autre enfant."
+        },
+        {
+          "id": "integration",
+          "titre": "Intégration"
+        },
+        {
+          "id": "rythme",
+          "titre": "Rythme"
+        },
+        {
+          "id": "absences",
+          "titre": "Absences"
+        },
+        {
+          "id": "depuis_la_rentree",
+          "titre": "Depuis la rentrée"
+        },
+        {
+          "id": "scolarite",
+          "titre": "Scolarité"
+        },
+        {
+          "id": "communication",
+          "titre": "Communication"
+        },
+        {
+          "id": "autres_sujets",
+          "titre": "Autres sujets"
+        },
+        {
+          "id": "pour_finir",
+          "titre": "Pour finir"
+        }
+      ],
+      "questions": [
+        {
+          "id": "classe",
+          "theme": "enfant",
+          "type": "choix_unique",
+          "libelle": "Classe de votre enfant",
+          "obligatoire": true,
+          "liste": "classes",
+          "affichage": "liste"
+        },
+        {
+          "id": "nom",
+          "theme": "enfant",
+          "type": "texte",
+          "libelle": "Nom et prénom de votre enfant (facultatif)",
+          "obligatoire": false,
+          "nominatif": true,
+          "max": 80,
+          "court": true
+        },
+        {
+          "id": "integration",
+          "theme": "integration",
+          "type": "echelle4",
+          "libelle": "L'intégration de votre enfant dans sa classe",
+          "obligatoire": true
+        },
+        {
+          "id": "emploi_du_temps",
+          "theme": "rythme",
+          "type": "echelle4",
+          "libelle": "Son emploi du temps",
+          "obligatoire": true
+        },
+        {
+          "id": "travail_maison",
+          "theme": "rythme",
+          "type": "echelle4",
+          "libelle": "Le travail à la maison (rythme, quantité)",
+          "obligatoire": true
+        },
+        {
+          "id": "forme_motivation",
+          "theme": "rythme",
+          "type": "echelle4",
+          "libelle": "Sa forme et sa motivation, telles que vous les observez à la maison",
+          "obligatoire": true
+        },
+        {
+          "id": "rattrapage_absence",
+          "theme": "absences",
+          "type": "echelle4",
+          "libelle": "Le rattrapage des cours en cas d'absence",
+          "obligatoire": false,
+          "aide": "Laissez vide si votre enfant n'a pas été absent."
+        },
+        {
+          "id": "evenements_exceptionnels",
+          "theme": "depuis_la_rentree",
+          "type": "choix_unique",
+          "libelle": "Y a-t-il eu des éléments exceptionnels depuis la rentrée (incident, changement, événement familial…) ?",
+          "obligatoire": false,
+          "options": [
+            "Non",
+            "Oui"
+          ],
+          "precision_si": [
+            "Oui"
+          ],
+          "aide": "Dites seulement ce qui est utile au conseil de classe. Évitez les informations de santé détaillées."
+        },
+        {
+          "id": "difficultes",
+          "theme": "scolarite",
+          "type": "choix_unique",
+          "libelle": "Votre enfant rencontre-t-il des difficultés dans certaines matières ?",
+          "obligatoire": true,
+          "options": [
+            "Non",
+            "Oui"
+          ]
+        },
+        {
+          "id": "difficultes_matieres",
+          "theme": "scolarite",
+          "type": "choix_multiple",
+          "libelle": "Lesquelles ?",
+          "obligatoire": false,
+          "liste": "matieres",
+          "afficher_si": {
+            "question": "difficultes",
+            "valeurs": [
+              "Oui"
+            ]
+          }
+        },
+        {
+          "id": "rencontre_profs",
+          "theme": "scolarite",
+          "type": "choix_unique",
+          "libelle": "Avez-vous rencontré les professeurs concernés ou le professeur principal ?",
+          "obligatoire": false,
+          "options": [
+            "Oui, les professeurs concernés",
+            "Oui, le professeur principal",
+            "Oui, les deux",
+            "Pas encore"
+          ],
+          "afficher_si": {
+            "question": "difficultes",
+            "valeurs": [
+              "Oui"
+            ]
+          }
+        },
+        {
+          "id": "soutien_scolaire",
+          "theme": "scolarite",
+          "type": "choix_unique",
+          "libelle": "Votre enfant a-t-il un soutien scolaire (au collège ou à l'extérieur) ?",
+          "obligatoire": false,
+          "options": [
+            "Non",
+            "Oui"
+          ],
+          "precision_si": [
+            "Oui"
+          ],
+          "precision_libelle": "Lequel ?"
+        },
+        {
+          "id": "communication",
+          "theme": "communication",
+          "type": "echelle4",
+          "libelle": "La communication avec le collège (Pronote, mails, réunions)",
+          "obligatoire": true
+        },
+        {
+          "id": "autres_sujets",
+          "theme": "autres_sujets",
+          "type": "texte",
+          "libelle": "Transports, cantine, autres sujets : vos remarques",
+          "obligatoire": false,
+          "max": 1000
+        },
+        {
+          "id": "a_garder",
+          "theme": "pour_finir",
+          "type": "texte",
+          "libelle": "Une chose à garder",
+          "obligatoire": false,
+          "court": true,
+          "max": 300
+        },
+        {
+          "id": "a_changer",
+          "theme": "pour_finir",
+          "type": "texte",
+          "libelle": "Une chose à changer",
+          "obligatoire": false,
+          "court": true,
+          "max": 300
+        },
+        {
+          "id": "suggestion",
+          "theme": "pour_finir",
+          "type": "texte",
+          "libelle": "Une suggestion",
+          "obligatoire": false,
+          "court": true,
+          "max": 300
+        }
+      ]
+    }
+  }
+}

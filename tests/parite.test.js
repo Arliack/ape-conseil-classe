@@ -4,11 +4,11 @@
 //  - les deux gardent exactement les mêmes champs.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { aleatoire, chargerAppsScript, chargerDonnees } from './outils.js';
+import { aleatoire, chargerAppsScript, questionnaireExemple } from './outils.js';
 import { construirePayload, erreursTheme, optionsDe, precisionSi, themesVisibles } from '../src/lib/questionnaire.js';
 
 const gs = chargerAppsScript();
-const data = chargerDonnees();
+const data = questionnaireExemple();
 
 function tirerReponses(q, hasard) {
   const choisir = (liste) => liste[Math.floor(hasard() * liste.length)];

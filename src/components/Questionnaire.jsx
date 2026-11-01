@@ -14,7 +14,6 @@ function brouillonInitial(cle) {
 
 export default function Questionnaire({ data, cle }) {
   const q = data.questionnaires[cle];
-  const tu = cle === 'eleves';
   const [initial] = useState(() => brouillonInitial(cle));
   const [id, setId] = useState(initial.id);
   const [reponses, setReponses] = useState(initial.reponses);
@@ -71,7 +70,7 @@ export default function Questionnaire({ data, cle }) {
 
   const suivant = (e) => {
     e.preventDefault();
-    const errs = erreursTheme(q, data, theme.id, reponses, tu);
+    const errs = erreursTheme(q, data, theme.id, reponses);
     setErreurs(errs);
     if (Object.keys(errs).length) {
       focaliserPremiereErreur(errs);
@@ -87,7 +86,7 @@ export default function Questionnaire({ data, cle }) {
   };
 
   const toutEffacer = () => {
-    const ok = window.confirm(tu ? 'Effacer toutes tes réponses et recommencer ?' : 'Effacer toutes vos réponses et recommencer ?');
+    const ok = window.confirm('Effacer toutes vos réponses et recommencer ?');
     if (!ok) return;
     effacerBrouillon(cle);
     setId(nouvelId());
@@ -162,7 +161,7 @@ export default function Questionnaire({ data, cle }) {
           <p>
             <strong>L'envoi n'a pas fonctionné.</strong> {envoi.message}
           </p>
-          <p>{tu ? 'Tes réponses sont gardées : tu peux réessayer.' : 'Vos réponses sont conservées : vous pouvez réessayer.'}</p>
+          <p>Vos réponses sont conservées : vous pouvez réessayer.</p>
         </div>
       )}
 

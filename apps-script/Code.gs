@@ -1,49 +1,138 @@
 /**
  * @OnlyCurrentDoc  Le script n'a accès qu'à ce classeur, pas aux autres fichiers du Drive.
  *
- * Questionnaires « conseil de classe » — APE du collège Raymond Queneau.
+ * Questionnaire « conseil de classe » (parents) — APE du collège Raymond Queneau.
  *
- * Application web liée au Google Sheet :
- *   GET  → { status: "ok" } et rien d'autre (aucune réponse n'est lisible publiquement)
- *   POST → corps JSON envoyé en text/plain (pas de requête CORS préalable) : enregistre une réponse
- *
- * Les questions ne sont pas écrites ici : le script lit questionnaires.json publié avec le site
- * (adresse dans l'onglet Config, cellule B2). Ajouter une question = modifier ce fichier JSON dans
- * le dépôt ; les colonnes du Sheet se créent toutes seules, sans toucher à ce code.
+ * Les questions se modifient dans l'onglet « Questions », puis menu APE > Publier les questions.
+ * Application web liée à ce classeur :
+ *   GET                      → { status: "ok" }
+ *   GET ?action=questionnaire → les questions publiées (jamais les réponses)
+ *   POST (JSON envoyé en text/plain, sans requête CORS préalable) → enregistre une réponse
  */
 
 var ONGLETS = {
   CONFIG: 'Config',
+  QUESTIONS: 'Questions',
+  REPONSES: 'Reponses_Parents',
   SYNTHESE: 'Synthese',
   PREFIXE_CLASSE: 'Synthese '   // un onglet « Synthese 6e A » par classe
 };
-var ONGLETS_REPONSES = { eleves: 'Reponses_Eleves', parents: 'Reponses_Parents' };
+var CLE = 'parents';             // nom du questionnaire dans les données et le payload
+
+var ECHELLE = ['Très bien', 'Bien', 'Moyen', 'Pas bien'];
+var PRECISION_ECHELLE = ['Moyen', 'Pas bien'];   // « Précisez » par défaut pour une échelle
+
+var MAX_PAYLOAD = 30000;        // caractères ; au-delà la requête est rejetée
+var MAX_TEXTE_DEFAUT = 1000;    // si la question ne précise pas de maximum
+var MAX_PRECISION = 500;
+var SUFFIXE_PRECISION = '_precision';
+var SEPARATEUR_MULTIPLE = ' ; ';
+var CACHE_CLE = 'questionnaire';
+var CACHE_DUREE = 21600;        // 6 h, le maximum de CacheService
+var NB_POINTS_PAS_BIEN = 5;
 
 var COLONNES_FIXES = [
   { id: 'horodatage', libelle: 'Date et heure de la réponse' },
   { id: 'id_reponse', libelle: 'Identifiant technique (évite les doublons en cas de renvoi)' },
-  { id: 'version', libelle: 'Version du questionnaire utilisée' }
+  { id: 'version', libelle: 'Version des questions utilisée' }
+];
+var IDS_RESERVES = ['horodatage', 'id_reponse', 'version', 'classe', 'nom', 'site'];
+
+/* ========================================================================== */
+/* Onglet « Questions » : une ligne par question                               */
+/* ========================================================================== */
+
+var COL = {
+  MASQUER: 0, THEME: 1, QUESTION: 2, TYPE: 3, OPTIONS: 4, OBLIGATOIRE: 5,
+  PRECISION_SI: 6, AFFICHER_SI: 7, AIDE: 8, LIBELLE_PRECISION: 9, MAX: 10, ID: 11
+};
+var ENTETES_QUESTIONS = [
+  ['Masquer', 'Cocher pour retirer la question du formulaire sans perdre sa colonne de réponses.'],
+  ['Thème', 'Chaque thème est une étape du formulaire, dans l\'ordre d\'apparition.'],
+  ['Question', 'Texte affiché aux parents.'],
+  ['Type', 'Échelle 4 niveaux (Très bien / Bien / Moyen / Pas bien), Choix unique, Choix multiple, Texte (plusieurs lignes) ou Texte court (une ligne).'],
+  ['Réponses possibles', 'Pour les choix : réponses séparées par « ; ». [Classes] ou [Matières] reprennent les listes de l\'onglet Config. Inutile pour une échelle ou un texte.'],
+  ['Obligatoire', 'Cocher si la question doit avoir une réponse.'],
+  ['Précisez si', 'Réponses (séparées par « ; ») qui font apparaître un champ « Précisez ». Vide sur une échelle = Moyen ; Pas bien. Écrire « aucune » pour ne jamais l\'afficher.'],
+  ['Afficher si', 'Condition d\'affichage, par exemple : difficultes = Oui (identifiant d\'une question placée avant = réponse(s) séparées par « ; »). Vide = toujours affichée.'],
+  ['Aide', 'Petite phrase d\'aide sous la question (facultatif).'],
+  ['Libellé de « Précisez »', 'Remplace le libellé du champ de précision pour cette question (facultatif).'],
+  ['Max caractères', 'Longueur maximale d\'un texte (1000 par défaut).'],
+  ['Identifiant', 'Rempli automatiquement à la publication. C\'est le nom de la colonne dans Reponses_Parents : ne pas le modifier une fois des réponses reçues.']
+];
+var TYPES = {
+  'échelle 4 niveaux': { type: 'echelle4' },
+  'choix unique': { type: 'choix_unique' },
+  'choix multiple': { type: 'choix_multiple' },
+  'texte': { type: 'texte' },
+  'texte court': { type: 'texte', court: true }
+};
+var LISTES = { '[classes]': 'classes', '[matières]': 'matieres', '[matieres]': 'matieres' };
+
+/** Questions installées au départ (modifiables ensuite dans l'onglet). */
+var QUESTIONS_DEPART = [
+  [false, 'Intégration', "L'intégration de votre enfant dans sa classe", 'Échelle 4 niveaux', '', true, '', '', '', '', '', 'integration'],
+  [false, 'Rythme', 'Son emploi du temps', 'Échelle 4 niveaux', '', true, '', '', '', '', '', 'emploi_du_temps'],
+  [false, 'Rythme', 'Le travail à la maison (rythme, quantité)', 'Échelle 4 niveaux', '', true, '', '', '', '', '', 'travail_maison'],
+  [false, 'Rythme', 'Sa forme et sa motivation, telles que vous les observez à la maison', 'Échelle 4 niveaux', '', true, '', '', '', '', '', 'forme_motivation'],
+  [false, 'Absences', "Le rattrapage des cours en cas d'absence", 'Échelle 4 niveaux', '', false, '', '', "Laissez vide si votre enfant n'a pas été absent.", '', '', 'rattrapage_absence'],
+  [false, 'Depuis la rentrée', 'Y a-t-il eu des éléments exceptionnels depuis la rentrée (incident, changement, événement familial…) ?', 'Choix unique', 'Non ; Oui', false, 'Oui', '', 'Dites seulement ce qui est utile au conseil de classe. Évitez les informations de santé détaillées.', '', '', 'evenements_exceptionnels'],
+  [false, 'Scolarité', 'Votre enfant rencontre-t-il des difficultés dans certaines matières ?', 'Choix unique', 'Non ; Oui', true, '', '', '', '', '', 'difficultes'],
+  [false, 'Scolarité', 'Lesquelles ?', 'Choix multiple', '[Matières]', false, '', 'difficultes = Oui', '', '', '', 'difficultes_matieres'],
+  [false, 'Scolarité', 'Avez-vous rencontré les professeurs concernés ou le professeur principal ?', 'Choix unique', 'Oui, les professeurs concernés ; Oui, le professeur principal ; Oui, les deux ; Pas encore', false, '', 'difficultes = Oui', '', '', '', 'rencontre_profs'],
+  [false, 'Scolarité', 'Votre enfant a-t-il un soutien scolaire (au collège ou à l\'extérieur) ?', 'Choix unique', 'Non ; Oui', false, 'Oui', '', '', 'Lequel ?', '', 'soutien_scolaire'],
+  [false, 'Communication', 'La communication avec le collège (Pronote, mails, réunions)', 'Échelle 4 niveaux', '', true, '', '', '', '', '', 'communication'],
+  [false, 'Autres sujets', 'Transports, cantine, autres sujets : vos remarques', 'Texte', '', false, '', '', '', '', 1000, 'autres_sujets'],
+  [false, 'Pour finir', 'Une chose à garder', 'Texte court', '', false, '', '', '', '', 300, 'a_garder'],
+  [false, 'Pour finir', 'Une chose à changer', 'Texte court', '', false, '', '', '', '', 300, 'a_changer'],
+  [false, 'Pour finir', 'Une suggestion', 'Texte court', '', false, '', '', '', '', 300, 'suggestion']
 ];
 
-var MAX_PAYLOAD = 30000;        // caractères ; au-delà la requête est rejetée
-var MAX_TEXTE_DEFAUT = 1000;    // si la question ne précise pas "max"
-var MAX_PRECISION = 500;
-var SUFFIXE_PRECISION = '_precision';
-var SEPARATEUR_MULTIPLE = ' ; ';
-var CACHE_CLE = 'questionnaires';
-var CACHE_DUREE = 21600;        // 6 h, le maximum de CacheService
-var NB_POINTS_PAS_BIEN = 5;
+/* Onglet « Config » : paramètres (colonnes A-B) et listes Classes / Matières (colonnes D-E). */
 
-// Cellules de l'onglet Config.
-var CONFIG = { URL: 'B2', VERSION: 'B3', CHARGE_LE: 'B4', COPIE: 'B5' };
-// Adresse utilisée si Config!B2 est vide (site publié depuis le dépôt Arliack/ape-conseil-classe).
-var URL_QUESTIONNAIRE_DEFAUT = 'https://arliack.github.io/ape-conseil-classe/questionnaires.json';
+var PARAMS = {
+  TITRE: 'Titre du questionnaire',
+  INTRO: 'Introduction (accueil)',
+  ENFANT: 'Texte de la 1re étape',
+  PRECISION: 'Libellé du champ « Précisez »',
+  MERCI: 'Message de remerciement',
+  PROCHAIN: 'Prochain conseil de classe',
+  CONTACT: "Contact de l'APE",
+  CONSERVATION: 'Conservation des réponses',
+  VERSION: 'Version publiée (automatique)',
+  PUBLIE_LE: 'Publiée le (automatique)'
+};
+var PARAMS_DEPART = [
+  [PARAMS.TITRE, 'Questionnaire parents'],
+  [PARAMS.INTRO, 'Vos réponses sont lues par les délégués de parents pour préparer le conseil de classe. Le nom de votre enfant est facultatif et n\'apparaît jamais dans la synthèse.'],
+  [PARAMS.ENFANT, 'Si vous avez plusieurs enfants au collège, répondez pour le premier : vous pourrez ensuite répondre pour un autre enfant.'],
+  [PARAMS.PRECISION, 'Précisez si vous le souhaitez'],
+  [PARAMS.MERCI, 'Merci pour vos réponses ! Les délégués de parents vont les lire pour préparer le conseil de classe.'],
+  [PARAMS.PROCHAIN, 'Les conseils de classe du 1er trimestre ont lieu en décembre 2026 (dates à confirmer).'],
+  [PARAMS.CONTACT, 'ape.queneau@gmail.com'],
+  [PARAMS.CONSERVATION, "Les réponses sont supprimées à la fin de l'année scolaire, au plus tard le 31 août 2027."],
+  [PARAMS.VERSION, ''],
+  [PARAMS.PUBLIE_LE, '']
+];
+var CLASSES_DEPART = ['6e A', '6e B', '6e C', '6e D', '5e A', '5e B', '5e C', '4e A', '4e B', '4e C', '4e D', '3e A', '3e B', '3e C'];
+var MATIERES_DEPART = ['Français', 'Mathématiques', 'Histoire-géographie / EMC', 'Anglais', 'LV2 (espagnol, allemand…)', 'SVT',
+  'Physique-chimie', 'Technologie', 'Arts plastiques', 'Éducation musicale', 'EPS', 'Latin'];
+
+function configDepart_() {
+  var params = {};
+  PARAMS_DEPART.forEach(function (p) { params[p[0]] = p[1]; });
+  return { params: params, classes: CLASSES_DEPART.slice(), matieres: MATIERES_DEPART.slice() };
+}
 
 /* ========================================================================== */
 /* Application web                                                             */
 /* ========================================================================== */
 
-function doGet() {
+function doGet(e) {
+  if (e && e.parameter && e.parameter.action === 'questionnaire') {
+    var data = lireQuestionnairePublie_();
+    return json_(data ? { ok: true, data: data } : { ok: false, erreur: "Le questionnaire n'est pas encore publié." });
+  }
   return json_({ status: 'ok' });
 }
 
@@ -54,9 +143,13 @@ function doPost(e) {
     // Champ piège rempli : un robot. On fait semblant d'accepter, sans rien écrire.
     if (p.robot) return json_({ ok: true });
 
-    var data = chargerQuestionnaires_(p.payload.version, false);
+    var data = lireQuestionnairePublie_();
+    if (!data) return json_({ ok: false, erreur: "Le questionnaire n'est pas encore publié." });
     var v = validerReponse_(p.payload, data);
-    if (!v.ok) return json_({ ok: false, erreur: v.erreur });
+    if (!v.ok) {
+      var aRecharger = p.payload.version && p.payload.version !== data.version;
+      return json_({ ok: false, erreur: v.erreur + (aRecharger ? ' Le questionnaire vient d\'être modifié : rechargez la page, vos réponses sont gardées.' : '') });
+    }
 
     var lock = LockService.getScriptLock();
     lock.waitLock(20000);
@@ -77,7 +170,169 @@ function json_(obj) {
 }
 
 /* ========================================================================== */
-/* Lecture et validation (fonctions pures, testées dans tests/apps-script.test.js) */
+/* Construction du questionnaire depuis l'onglet (fonction pure, testée)       */
+/* ========================================================================== */
+
+/**
+ * Transforme les lignes de l'onglet « Questions » et les réglages de Config en questionnaire.
+ * @param {Array[]} lignes  valeurs de l'onglet, sans la ligne d'en-tête
+ * @param {{params:Object, classes:string[], matieres:string[]}} config
+ * @return {{erreurs:string[], ids:string[], data:Object}} ids[i] = identifiant de la ligne i ('' si ignorée)
+ */
+function construireQuestionnaire_(lignes, config, version) {
+  var erreurs = [];
+  var ids = lignes.map(function (l) { return String(l[COL.ID] || '').trim(); });
+  var pris = IDS_RESERVES.slice();
+  ids.forEach(function (id) { if (id) pris.push(id); });
+  var listes = { classes: config.classes, matieres: config.matieres };
+  var themes = [{ id: 'enfant', titre: 'Votre enfant', intro: config.params[PARAMS.ENFANT] || '' }];
+  var questions = [
+    { id: 'classe', theme: 'enfant', type: 'choix_unique', libelle: 'Classe de votre enfant', obligatoire: true, liste: 'classes', affichage: 'liste' },
+    { id: 'nom', theme: 'enfant', type: 'texte', libelle: 'Nom et prénom de votre enfant (facultatif)', obligatoire: false, nominatif: true, max: 80, court: true }
+  ];
+  var dejaVus = {};
+
+  lignes.forEach(function (l, i) {
+    var n = 'Ligne ' + (i + 2) + ' : ';
+    var libelle = String(l[COL.QUESTION] || '').trim();
+    if (!libelle || l[COL.MASQUER] === true) return;
+
+    var defType = TYPES[String(l[COL.TYPE] || '').trim().toLowerCase()];
+    if (!defType) { erreurs.push(n + 'type « ' + l[COL.TYPE] + ' » inconnu.'); return; }
+    var titreTheme = String(l[COL.THEME] || '').trim();
+    if (!titreTheme) { erreurs.push(n + 'thème manquant.'); return; }
+
+    // Identifiant : celui de la colonne L, sinon fabriqué à partir de la question.
+    var id = ids[i];
+    if (id && !/^[a-z][a-z0-9_]*$/.test(id)) { erreurs.push(n + 'identifiant « ' + id + ' » invalide (minuscules, chiffres et _).'); return; }
+    if (id && (dejaVus[id] || IDS_RESERVES.indexOf(id) !== -1 || /_precision$/.test(id))) {
+      erreurs.push(n + 'identifiant « ' + id + ' » déjà utilisé ou réservé.'); return;
+    }
+    if (!id) {
+      var base = identifiant_(libelle);
+      id = base;
+      for (var k = 2; pris.indexOf(id) !== -1; k++) id = base + '_' + k;
+      pris.push(id);
+      ids[i] = id;
+    }
+    dejaVus[id] = true;
+
+    var q = { id: id, theme: '', type: defType.type, libelle: libelle, obligatoire: l[COL.OBLIGATOIRE] === true };
+    if (defType.court) q.court = true;
+
+    var options = [];
+    var brutOptions = String(l[COL.OPTIONS] || '').trim();
+    if (q.type === 'choix_unique' || q.type === 'choix_multiple') {
+      var liste = LISTES[brutOptions.toLowerCase()];
+      if (liste) {
+        q.liste = liste;
+        options = listes[liste];
+      } else {
+        options = decouper_(brutOptions);
+        q.options = options;
+      }
+      if (options.length < 2) { erreurs.push(n + 'au moins 2 réponses possibles, séparées par « ; ».'); return; }
+      if (options.some(function (o, j) { return options.indexOf(o) !== j; })) { erreurs.push(n + 'réponse possible en double.'); return; }
+    } else if (q.type === 'echelle4') {
+      options = ECHELLE;
+    }
+
+    var brutPrecision = String(l[COL.PRECISION_SI] || '').trim();
+    if (brutPrecision) {
+      if (q.type === 'texte') { erreurs.push(n + '« Précisez si » est inutile pour un texte.'); return; }
+      q.precision_si = brutPrecision.toLowerCase() === 'aucune' ? [] : decouper_(brutPrecision);
+      var inconnue = q.precision_si.filter(function (v) { return options.indexOf(v) === -1; })[0];
+      if (inconnue) { erreurs.push(n + '« Précisez si » : « ' + inconnue + ' » ne fait pas partie des réponses possibles.'); return; }
+    }
+
+    var brutCondition = String(l[COL.AFFICHER_SI] || '').trim();
+    if (brutCondition) {
+      var m = /^([^=]+?)\s*=\s*(.+)$/.exec(brutCondition);
+      if (!m) { erreurs.push(n + '« Afficher si » doit ressembler à : difficultes = Oui'); return; }
+      var ref = m[1].trim();
+      var valeurs = decouper_(m[2]);
+      if (ref.toLowerCase() === 'niveau') {
+        q.afficher_si = { niveau: valeurs };
+      } else {
+        var cible = questions.filter(function (x) { return x.id === ref || x.libelle.toLowerCase() === ref.toLowerCase(); })[0];
+        if (!cible) { erreurs.push(n + '« Afficher si » : aucune question « ' + ref + ' » placée avant.'); return; }
+        var optsCible = optionsDe_(cible, { echelle4: ECHELLE, listes: listes });
+        var horsListe = valeurs.filter(function (v) { return optsCible.indexOf(v) === -1; })[0];
+        if (horsListe) { erreurs.push(n + '« Afficher si » : « ' + horsListe + ' » n\'est pas une réponse possible de « ' + cible.libelle + ' ».'); return; }
+        q.afficher_si = { question: cible.id, valeurs: valeurs };
+      }
+    }
+
+    var aide = String(l[COL.AIDE] || '').trim();
+    if (aide) q.aide = aide;
+    var libP = String(l[COL.LIBELLE_PRECISION] || '').trim();
+    if (libP) q.precision_libelle = libP;
+    if (l[COL.MAX] !== '' && l[COL.MAX] !== null && l[COL.MAX] !== undefined) {
+      var max = Number(l[COL.MAX]);
+      if (!(max >= 1 && max <= 2000 && Math.floor(max) === max)) { erreurs.push(n + 'max caractères entre 1 et 2000.'); return; }
+      if (q.type === 'texte') q.max = max;
+    }
+
+    var theme = themes.filter(function (t) { return t.titre.toLowerCase() === titreTheme.toLowerCase(); })[0];
+    if (!theme) {
+      var idTheme = identifiant_(titreTheme);
+      while (themes.some(function (t) { return t.id === idTheme; })) idTheme += '_';
+      theme = { id: idTheme, titre: titreTheme };
+      themes.push(theme);
+    }
+    q.theme = theme.id;
+    questions.push(q);
+  });
+
+  if (!config.classes.length) erreurs.push('Onglet Config : la liste des classes (colonne D) est vide.');
+  if (questions.length <= 2) erreurs.push('Aucune question à afficher.');
+
+  var p = config.params;
+  return {
+    erreurs: erreurs,
+    ids: ids,
+    data: {
+      version: String(version || ''),
+      site: {
+        association: 'APE du collège Raymond Queneau',
+        college: 'Collège Raymond Queneau',
+        contact: p[PARAMS.CONTACT] || '',
+        prochain_conseil: p[PARAMS.PROCHAIN] || '',
+        conservation: p[PARAMS.CONSERVATION] || ''
+      },
+      echelle4: ECHELLE,
+      precision_echelle4: PRECISION_ECHELLE,
+      listes: listes,
+      questionnaires: {
+        parents: {
+          titre: p[PARAMS.TITRE] || 'Questionnaire parents',
+          intro: p[PARAMS.INTRO] || '',
+          precision_libelle: p[PARAMS.PRECISION] || 'Précisez si vous le souhaitez',
+          merci: p[PARAMS.MERCI] || 'Merci pour vos réponses !',
+          themes: themes,
+          questions: questions
+        }
+      }
+    }
+  };
+}
+
+function decouper_(txt) {
+  return String(txt || '').split(/\s*[;\n]\s*/).map(function (s) { return s.trim(); }).filter(Boolean);
+}
+
+/** « L'intégration de votre enfant » → « l_integration_de_votre_enfant ». */
+function identifiant_(texte) {
+  var id = String(texte).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 40).replace(/_+$/, '');
+  if (!id) id = 'question';
+  if (!/^[a-z]/.test(id)) id = 'q_' + id;
+  if (/_precision$/.test(id)) id += '_q';
+  return id;
+}
+
+/* ========================================================================== */
+/* Lecture et validation d'une réponse (fonctions pures, testées)              */
 /* ========================================================================== */
 
 /**
@@ -99,7 +354,7 @@ function parserRequete_(brut) {
 }
 
 /**
- * Vérifie une réponse au regard du questionnaire et la met en forme pour le Sheet.
+ * Vérifie une réponse au regard du questionnaire publié et la met en forme pour le Sheet.
  * Les questions masquées (condition non remplie) sont ignorées, les clés inconnues aussi.
  * @return {{ok:true, reponse:{questionnaire, id, version, valeurs}} | {ok:false, erreur:string}}
  */
@@ -238,67 +493,34 @@ function colonnesAttendues_(q, data) {
 }
 
 /* ========================================================================== */
-/* Questionnaire : chargement depuis le site                                   */
+/* Questionnaire publié                                                        */
 /* ========================================================================== */
 
-/**
- * Renvoie le questionnaire. Ordre : cache (6 h) → fichier publié sur le site → copie de secours
- * dans Config. Si le site annonce une autre version que celle en cache, on relit le fichier.
- */
-function chargerQuestionnaires_(versionAttendue, forcer) {
+/** Le questionnaire publié, ou null. Gardé dans les propriétés du script (par morceaux) et en cache. */
+function lireQuestionnairePublie_() {
   var cache = CacheService.getScriptCache();
-  var enCache = lireJson_(cache.get(CACHE_CLE));
-  if (enCache && !forcer && (!versionAttendue || enCache.version === versionAttendue)) return enCache;
-
-  // Au plus un téléchargement par minute, sauf demande explicite depuis le menu.
-  if (forcer || !cache.get('recharge-recente')) {
-    cache.put('recharge-recente', '1', 60);
-    try {
-      var frais = telechargerQuestionnaires_();
-      cache.put(CACHE_CLE, JSON.stringify(frais), CACHE_DUREE);
-      ecrireConfig_(frais);
-      return frais;
-    } catch (err) {
-      console.warn('Questionnaire non téléchargé : ' + err.message);
-      if (forcer) throw err;
-    }
+  var txt = cache.get(CACHE_CLE);
+  if (!txt) {
+    var props = PropertiesService.getScriptProperties();
+    var nb = parseInt(props.getProperty('QUESTIONNAIRE_NB') || '0', 10);
+    if (!nb) return null;
+    var morceaux = [];
+    for (var i = 0; i < nb; i++) morceaux.push(props.getProperty('QUESTIONNAIRE_' + i) || '');
+    txt = morceaux.join('');
+    cache.put(CACHE_CLE, txt, CACHE_DUREE);
   }
-  if (enCache) return enCache;
-
-  var copie = lireCopieConfig_();
-  if (copie) {
-    cache.put(CACHE_CLE, JSON.stringify(copie), CACHE_DUREE);
-    return copie;
-  }
-  throw new Error("Questionnaire introuvable : renseigner l'URL dans l'onglet Config (B2), puis APE > Recharger le questionnaire.");
+  return lireJson_(txt);
 }
 
-function telechargerQuestionnaires_() {
-  var sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(ONGLETS.CONFIG);
-  var url = (sh ? String(sh.getRange(CONFIG.URL).getValue()).trim() : '') || URL_QUESTIONNAIRE_DEFAUT;
-  if (!/^https:\/\//.test(url)) throw new Error("URL du questionnaire invalide dans l'onglet Config (B2).");
-  // Paramètre anti-cache : GitHub Pages garde les fichiers 10 min en cache.
-  var rep = UrlFetchApp.fetch(url + (url.indexOf('?') === -1 ? '?' : '&') + 't=' + Date.now(), { muteHttpExceptions: true });
-  if (rep.getResponseCode() !== 200) throw new Error('Téléchargement impossible (HTTP ' + rep.getResponseCode() + ') : ' + url);
-  var data = lireJson_(rep.getContentText('UTF-8'));
-  var erreur = verifierStructure_(data);
-  if (erreur) throw new Error('questionnaires.json invalide : ' + erreur);
-  return data;
-}
-
-/** Contrôle minimal (le contrôle complet est fait par les tests du dépôt). */
-function verifierStructure_(data) {
-  if (!data || typeof data !== 'object') return 'pas un objet JSON';
-  if (!Array.isArray(data.echelle4) || data.echelle4.length !== 4) return '"echelle4" doit contenir 4 valeurs';
-  if (!data.listes || !Array.isArray(data.listes.classes)) return '"listes.classes" manquant';
-  if (!data.questionnaires || typeof data.questionnaires !== 'object') return '"questionnaires" manquant';
-  var cles = Object.keys(data.questionnaires);
-  for (var i = 0; i < cles.length; i++) {
-    var q = data.questionnaires[cles[i]];
-    if (!Array.isArray(q.themes) || !Array.isArray(q.questions)) return cles[i] + ' : "themes" ou "questions" manquant';
-    if (!q.questions.some(function (qu) { return qu.id === 'classe'; })) return cles[i] + ' : question "classe" manquante';
-  }
-  return '';
+function sauverPublication_(data) {
+  var txt = JSON.stringify(data);
+  var obj = {};
+  var nb = 0;
+  // Une propriété est limitée à 9 Ko : on découpe large (2500 caractères, accents compris).
+  for (var i = 0; i < txt.length; i += 2500) obj['QUESTIONNAIRE_' + nb++] = txt.slice(i, i + 2500);
+  obj.QUESTIONNAIRE_NB = String(nb);
+  PropertiesService.getScriptProperties().setProperties(obj, false);
+  CacheService.getScriptCache().put(CACHE_CLE, txt, CACHE_DUREE);
 }
 
 function lireJson_(txt) {
@@ -306,67 +528,35 @@ function lireJson_(txt) {
   try { return JSON.parse(txt); } catch (_) { return null; }
 }
 
-function lireCopieConfig_() {
-  var sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(ONGLETS.CONFIG);
-  return sh ? lireJson_(String(sh.getRange(CONFIG.COPIE).getValue())) : null;
-}
-
-/** Onglet Config : version chargée, copie de secours, et reflet des listes (classes, matières). */
-function ecrireConfig_(data) {
-  var sh = assurerOngletConfig_(SpreadsheetApp.getActiveSpreadsheet());
-  var copie = JSON.stringify(data);
-  sh.getRange(CONFIG.VERSION).setValue(String(data.version || ''));
-  sh.getRange(CONFIG.CHARGE_LE).setValue(new Date());
-  sh.getRange(CONFIG.COPIE).setValue(copie.length < 49000 ? copie : '(trop long pour une copie de secours)');
-
-  var listes = [['Classes', data.listes.classes || []], ['Matières', data.listes.matieres || []]];
-  sh.getRange(1, 4, Math.max(sh.getMaxRows(), 2), 2).clearContent();
-  listes.forEach(function (l, k) {
-    var valeurs = [[l[0]]].concat(l[1].map(function (v) { return [v]; }));
-    sh.getRange(1, 4 + k, valeurs.length, 1).setValues(valeurs);
-  });
-  sh.getRange(1, 4, 1, 2).setFontWeight('bold');
-}
-
-function assurerOngletConfig_(ss) {
+function lireConfig_(ss) {
   var sh = ss.getSheetByName(ONGLETS.CONFIG);
-  if (sh) return sh;
-  sh = ss.insertSheet(ONGLETS.CONFIG, 0);
-  sh.getRange('A1:B5').setValues([
-    ['Paramètre', 'Valeur'],
-    ['URL du questionnaire (questionnaires.json sur le site)', URL_QUESTIONNAIRE_DEFAUT],
-    ['Version chargée', ''],
-    ['Chargé le', ''],
-    ['Copie de secours (ne pas modifier)', '']
-  ]);
-  sh.getRange('A1:B1').setFontWeight('bold');
-  sh.getRange(CONFIG.COPIE).setWrap(false);
-  sh.setColumnWidth(1, 330);
-  sh.setColumnWidth(2, 420);
-  sh.getRange('A7').setValue('Les questions, classes et matières se modifient dans src/data/questionnaires.json (dépôt GitHub), pas ici. ' +
-    'Les colonnes D et E reflètent la dernière version chargée.');
-  sh.getRange('A7').setFontColor('#4a5560');
-  return sh;
+  var params = {};
+  var classes = [];
+  var matieres = [];
+  if (sh && sh.getLastRow() > 1) {
+    var v = sh.getRange(2, 1, sh.getLastRow() - 1, 5).getValues();
+    v.forEach(function (l) {
+      if (String(l[0]).trim()) params[String(l[0]).trim()] = String(l[1]).trim();
+      if (String(l[3]).trim()) classes.push(String(l[3]).trim());
+      if (String(l[4]).trim()) matieres.push(String(l[4]).trim());
+    });
+  }
+  return { params: params, classes: classes, matieres: matieres };
 }
 
 /* ========================================================================== */
 /* Enregistrement                                                              */
 /* ========================================================================== */
 
-function nomOngletReponses_(cle) {
-  return ONGLETS_REPONSES[cle] || ('Reponses_' + cle);
-}
-
 /**
  * Crée l'onglet si besoin et ajoute à droite les colonnes manquantes. Les colonnes existantes ne
  * sont jamais supprimées ni déplacées : l'APE peut les réordonner, le script les retrouve par leur id.
  */
-function assurerOngletReponses_(ss, cle, data) {
-  var nom = nomOngletReponses_(cle);
-  var sh = ss.getSheetByName(nom) || ss.insertSheet(nom);
+function assurerOngletReponses_(ss, data) {
+  var sh = ss.getSheetByName(ONGLETS.REPONSES) || ss.insertSheet(ONGLETS.REPONSES);
   var nbCol = sh.getLastColumn();
   var entetes = nbCol ? sh.getRange(1, 1, 1, nbCol).getValues()[0].map(String) : [];
-  var manquantes = colonnesAttendues_(data.questionnaires[cle], data).filter(function (c) {
+  var manquantes = colonnesAttendues_(data.questionnaires[CLE], data).filter(function (c) {
     return entetes.indexOf(c.id) === -1;
   });
   if (manquantes.length) {
@@ -388,7 +578,7 @@ function assurerOngletReponses_(ss, cle, data) {
  * @return {boolean} true si la réponse était déjà enregistrée.
  */
 function enregistrerReponse_(r, data) {
-  var o = assurerOngletReponses_(SpreadsheetApp.getActiveSpreadsheet(), r.questionnaire, data);
+  var o = assurerOngletReponses_(SpreadsheetApp.getActiveSpreadsheet(), data);
   var sh = o.sheet;
   var colId = o.entetes.indexOf('id_reponse') + 1;
   var derniere = sh.getLastRow();
@@ -399,7 +589,7 @@ function enregistrerReponse_(r, data) {
   var valeurs = Object.assign({
     horodatage: new Date(),
     id_reponse: neutraliserFormule_(r.id),     // reste du texte même s'il ne contient que des chiffres
-    version: neutraliserFormule_(r.version)    // « 2026-11-01 » ne doit pas devenir une date
+    version: neutraliserFormule_(r.version)    // une date-heure ne doit pas être convertie
   }, r.valeurs);
   var ligne = o.entetes.map(function (h) {
     return Object.prototype.hasOwnProperty.call(valeurs, h) ? valeurs[h] : '';
@@ -414,40 +604,114 @@ function enregistrerReponse_(r, data) {
 
 function onOpen() {
   SpreadsheetApp.getUi().createMenu('APE')
+    .addItem('Publier les questions', 'publierQuestions')
     .addItem('Mettre à jour la synthèse', 'buildSynthese')
-    .addItem('Recharger le questionnaire et les colonnes', 'rechargerQuestionnaire')
     .addSeparator()
-    .addItem('Installer le classeur', 'installer')
+    .addItem('Installer / réparer le classeur', 'installer')
     .addToUi();
 }
 
-/** Première installation : onglets, URL du questionnaire, colonnes. */
-function installer() {
+/**
+ * Menu APE > Publier les questions : vérifie l'onglet « Questions », complète les identifiants,
+ * et met en ligne la nouvelle version (le formulaire la charge à l'ouverture suivante).
+ */
+function publierQuestions() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var ui = SpreadsheetApp.getUi();
-  var config = assurerOngletConfig_(ss);
-  if (!String(config.getRange(CONFIG.URL).getValue()).trim()) {
-    var rep = ui.prompt('Adresse du questionnaire',
-      'Collez l\'adresse de questionnaires.json sur le site, par exemple :\n' + URL_QUESTIONNAIRE_DEFAUT,
-      ui.ButtonSet.OK_CANCEL);
-    if (rep.getSelectedButton() !== ui.Button.OK) return;
-    config.getRange(CONFIG.URL).setValue(rep.getResponseText().trim());
+  var sh = ss.getSheetByName(ONGLETS.QUESTIONS);
+  if (!sh) throw new Error('Onglet « Questions » introuvable : lancer APE > Installer / réparer le classeur.');
+  var nb = Math.max(sh.getLastRow() - 1, 0);
+  var lignes = nb ? sh.getRange(2, 1, nb, ENTETES_QUESTIONS.length).getValues() : [];
+  var version = Utilities.formatDate(new Date(), 'Europe/Paris', "yyyy-MM-dd'T'HH:mm:ss");
+  var res = construireQuestionnaire_(lignes, lireConfig_(ss), version);
+
+  if (res.erreurs.length) {
+    SpreadsheetApp.getUi().alert('Questions non publiées',
+      'Corrigez ces points dans l\'onglet Questions puis relancez APE > Publier les questions :\n\n' + res.erreurs.join('\n'),
+      SpreadsheetApp.getUi().ButtonSet.OK);
+    return;
   }
-  if (!ss.getSheetByName(ONGLETS.SYNTHESE)) ss.insertSheet(ONGLETS.SYNTHESE);
-  rechargerQuestionnaire();
-  var feuille1 = ss.getSheetByName('Feuille 1') || ss.getSheetByName('Sheet1');
-  if (feuille1 && feuille1.getLastRow() === 0 && ss.getSheets().length > 1) ss.deleteSheet(feuille1);
+  if (nb) sh.getRange(2, COL.ID + 1, nb, 1).setValues(res.ids.map(function (id) { return [id]; }));
+  sauverPublication_(res.data);
+  assurerOngletReponses_(ss, res.data);
+  ecrireParam_(ss, PARAMS.VERSION, version);
+  ecrireParam_(ss, PARAMS.PUBLIE_LE, new Date());
+  ss.toast(res.data.questionnaires[CLE].questions.length + ' questions en ligne (version ' + version + ').', 'Questions publiées', 8);
 }
 
-/** Relit questionnaires.json sur le site et ajoute les colonnes des nouvelles questions. */
-function rechargerQuestionnaire() {
+function ecrireParam_(ss, nom, valeur) {
+  var sh = ss.getSheetByName(ONGLETS.CONFIG);
+  var noms = sh.getRange(1, 1, sh.getLastRow(), 1).getValues().map(function (l) { return String(l[0]).trim(); });
+  var k = noms.indexOf(nom);
+  if (k === -1) {
+    k = noms.length;
+    sh.getRange(k + 1, 1).setValue(nom);
+  }
+  sh.getRange(k + 1, 2).setValue(typeof valeur === 'string' ? neutraliserFormule_(valeur) : valeur);
+}
+
+/** Crée ce qui manque (onglets, en-têtes, listes déroulantes) sans écraser ce qui existe, puis publie. */
+function installer() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var data = chargerQuestionnaires_(null, true);
-  var resume = Object.keys(data.questionnaires).map(function (cle) {
-    assurerOngletReponses_(ss, cle, data);
-    return data.questionnaires[cle].titre + ' : ' + data.questionnaires[cle].questions.length + ' questions';
+  assurerOngletConfig_(ss);
+  assurerOngletQuestions_(ss);
+  if (!ss.getSheetByName(ONGLETS.SYNTHESE)) ss.insertSheet(ONGLETS.SYNTHESE);
+
+  // Restes d'une version précédente ou du classeur vide de départ.
+  ['Reponses_Eleves', 'Feuille 1', 'Sheet1'].forEach(function (nom) {
+    var sh = ss.getSheetByName(nom);
+    if (sh && sh.getLastRow() <= 1 && ss.getSheets().length > 1) ss.deleteSheet(sh);
   });
-  ss.toast(resume.join('\n'), 'Questionnaire version ' + data.version + ' chargé', 8);
+  ss.setActiveSheet(ss.getSheetByName(ONGLETS.QUESTIONS));
+  publierQuestions();
+}
+
+function assurerOngletConfig_(ss) {
+  var sh = ss.getSheetByName(ONGLETS.CONFIG);
+  // Ancienne mise en page (adresse du fichier questionnaires.json) : remplacée.
+  if (sh && String(sh.getRange('A2').getValue()).indexOf('URL du questionnaire') === 0) {
+    ss.deleteSheet(sh);
+    sh = null;
+  }
+  if (sh) return sh;
+  sh = ss.insertSheet(ONGLETS.CONFIG);
+  sh.getRange(1, 1, 1, 5).setValues([['Paramètre', 'Valeur', '', 'Classes', 'Matières']]).setFontWeight('bold');
+  sh.getRange(2, 1, PARAMS_DEPART.length, 2).setValues(PARAMS_DEPART);
+  sh.getRange(2, 4, CLASSES_DEPART.length, 1).setValues(CLASSES_DEPART.map(function (c) { return [c]; }));
+  sh.getRange(2, 5, MATIERES_DEPART.length, 1).setValues(MATIERES_DEPART.map(function (m) { return [m]; }));
+  sh.getRange(2, 2, PARAMS_DEPART.length, 1).setWrap(true);
+  sh.setColumnWidth(1, 240);
+  sh.setColumnWidth(2, 420);
+  sh.setColumnWidth(3, 24);
+  sh.setColumnWidth(4, 100);
+  sh.setColumnWidth(5, 200);
+  sh.setFrozenRows(1);
+  sh.getRange('A1').setNote('Modifiez les valeurs, les classes (format « 6e A ») et les matières, puis APE > Publier les questions.');
+  return sh;
+}
+
+function assurerOngletQuestions_(ss) {
+  var sh = ss.getSheetByName(ONGLETS.QUESTIONS);
+  if (sh) return sh;
+  sh = ss.insertSheet(ONGLETS.QUESTIONS, 0);
+  var nbCol = ENTETES_QUESTIONS.length;
+  var entete = sh.getRange(1, 1, 1, nbCol);
+  entete.setValues([ENTETES_QUESTIONS.map(function (e) { return e[0]; })])
+    .setNotes([ENTETES_QUESTIONS.map(function (e) { return e[1]; })])
+    .setFontWeight('bold').setBackground('#eef6f8').setVerticalAlignment('middle');
+  var lignes = sh.getMaxRows() - 1;
+  sh.getRange(2, COL.MASQUER + 1, lignes, 1).insertCheckboxes();
+  sh.getRange(2, COL.OBLIGATOIRE + 1, lignes, 1).insertCheckboxes();
+  sh.getRange(2, COL.TYPE + 1, lignes, 1).setDataValidation(SpreadsheetApp.newDataValidation()
+    .requireValueInList(['Échelle 4 niveaux', 'Choix unique', 'Choix multiple', 'Texte', 'Texte court'], true)
+    .setAllowInvalid(false).build());
+  // Après insertCheckboxes (qui met toutes les cases à faux), pour garder les cases cochées de départ.
+  sh.getRange(2, 1, QUESTIONS_DEPART.length, nbCol).setValues(QUESTIONS_DEPART);
+
+  sh.getRange(2, 1, lignes, nbCol).setVerticalAlignment('top').setWrap(true);
+  sh.getRange(2, COL.ID + 1, lignes, 1).setFontColor('#4a5560');
+  [70, 140, 360, 140, 260, 90, 120, 170, 240, 160, 90, 170].forEach(function (w, i) { sh.setColumnWidth(i + 1, w); });
+  sh.setFrozenRows(1);
+  return sh;
 }
 
 /* ========================================================================== */
@@ -460,11 +724,10 @@ function rechargerQuestionnaire() {
  */
 function buildSynthese() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var data = chargerQuestionnaires_(null, false);
+  var data = lireQuestionnairePublie_();
+  if (!data) throw new Error('Questions pas encore publiées : APE > Publier les questions.');
   var lignesParQ = {};
-  Object.keys(data.questionnaires).forEach(function (cle) {
-    lignesParQ[cle] = lireReponses_(ss.getSheetByName(nomOngletReponses_(cle)));
-  });
+  lignesParQ[CLE] = lireReponses_(ss.getSheetByName(ONGLETS.REPONSES));
   var synthese = calculerSynthese_(data, lignesParQ);
   var maintenant = Utilities.formatDate(new Date(), ss.getSpreadsheetTimeZone(), "dd/MM/yyyy 'à' HH:mm");
 
@@ -473,7 +736,7 @@ function buildSynthese() {
   });
 
   var vue = ss.getSheetByName(ONGLETS.SYNTHESE) || ss.insertSheet(ONGLETS.SYNTHESE);
-  ecrireTableau_(vue, lignesVueEnsemble_(synthese, data, maintenant), [380, 140, 140, 220]);
+  ecrireTableau_(vue, lignesVueEnsemble_(synthese, data, maintenant), [380, 140, 220]);
 
   synthese.forEach(function (resClasse) {
     if (!resClasse.total) return;
@@ -484,7 +747,7 @@ function buildSynthese() {
   ss.toast('Synthèse mise à jour.', 'APE', 5);
 }
 
-/** Lignes de l'onglet de réponses → objets { id: valeur }. Les choix multiples redeviennent des listes. */
+/** Lignes de l'onglet de réponses → objets { id: valeur }. */
 function lireReponses_(sh) {
   if (!sh || sh.getLastRow() < 2) return [];
   var valeurs = sh.getDataRange().getValues();
@@ -518,7 +781,7 @@ function calculerSynthese_(data, lignesParQ) {
 
 function synthetiserQuestionnaire_(data, q, lignes) {
   var echelle = data.echelle4;
-  var pire = echelle[echelle.length - 1];
+  var pire = echelle.length - 1;
   var themes = [];
   var pasBien = [];
   var commentaires = [];
@@ -536,7 +799,7 @@ function synthetiserQuestionnaire_(data, q, lignes) {
         });
         var n = eff.reduce(function (s, x) { return s + x; }, 0);
         bloc.echelles.push({ libelle: qu.libelle, effectifs: eff, n: n });
-        if (eff[echelle.indexOf(pire)] > 0) pasBien.push({ libelle: qu.libelle, theme: t.titre, n: eff[echelle.indexOf(pire)], sur: n });
+        if (eff[pire] > 0) pasBien.push({ libelle: qu.libelle, theme: t.titre, n: eff[pire], sur: n });
       } else if (qu.type === 'choix_unique' || qu.type === 'choix_multiple') {
         var options = optionsDe_(qu, data).slice();
         var compte = {};
@@ -581,42 +844,32 @@ function synthetiserQuestionnaire_(data, q, lignes) {
 /* Mise en page : une liste de { v: [cellules], s: style }, écrite d'un bloc par ecrireTableau_. */
 
 function lignesVueEnsemble_(synthese, data, maintenant) {
-  var cles = Object.keys(data.questionnaires);
   var L = [
-    { v: ['Synthèse des questionnaires · conseil de classe'], s: 'titre' },
+    { v: ['Synthèse du questionnaire · conseil de classe'], s: 'titre' },
     { v: ['Mise à jour le ' + maintenant + ' (menu APE > Mettre à jour la synthèse)'], s: 'note' },
     { v: ['Les noms ne figurent jamais dans la synthèse. Relisez les commentaires avant de les présenter : ils peuvent contenir des détails qui identifient quelqu\'un.'], s: 'note' },
     { v: [''], s: '' },
-    { v: ['Classe'].concat(cles.map(function (c) { return 'Réponses ' + c; })).concat(['Onglet']), s: 'entete' }
+    { v: ['Classe', 'Réponses', 'Onglet'], s: 'entete' }
   ];
   synthese.forEach(function (r) {
-    L.push({
-      v: [r.classe].concat(cles.map(function (c) { return r.questionnaires[c].n; }))
-        .concat([r.total ? ONGLETS.PREFIXE_CLASSE + r.classe : '(aucune réponse)']),
-      s: 'ligne'
-    });
+    L.push({ v: [r.classe, r.total, r.total ? ONGLETS.PREFIXE_CLASSE + r.classe : '(aucune réponse)'], s: 'ligne' });
   });
   return L;
 }
 
 function lignesSyntheseClasse_(r, data, maintenant) {
   var echelle = data.echelle4;
-  var L = [{ v: ['Synthèse ' + r.classe + ' · conseil de classe'], s: 'titre' }];
-  var resume = Object.keys(data.questionnaires).map(function (cle) {
-    return data.questionnaires[cle].titre + ' : ' + r.questionnaires[cle].n + ' réponse(s)';
-  });
-  L.push({ v: [resume.join(' · ') + ' · mise à jour le ' + maintenant], s: 'note' });
+  var L = [
+    { v: ['Synthèse ' + r.classe + ' · conseil de classe'], s: 'titre' },
+    { v: [r.total + ' réponse(s) · mise à jour le ' + maintenant], s: 'note' }
+  ];
 
   Object.keys(data.questionnaires).forEach(function (cle) {
     var s = r.questionnaires[cle];
-    L.push({ v: [''], s: '' });
-    L.push({ v: [data.questionnaires[cle].titre.toUpperCase() + ' · ' + s.n + ' réponse(s)'], s: 'section' });
-    if (!s.n) {
-      L.push({ v: ['Aucune réponse pour cette classe.'], s: 'note' });
-      return;
-    }
+    if (!s.n) return;
 
     if (s.pasBien.length) {
+      L.push({ v: [''], s: '' });
       L.push({ v: ['Points « ' + echelle[echelle.length - 1] + ' » les plus cités'], s: 'theme' });
       L.push({ v: ['Question', 'Nombre', '% des réponses', '', '', 'Réponses'], s: 'entete' });
       s.pasBien.forEach(function (p) {
@@ -680,7 +933,6 @@ function ecrireTableau_(sh, lignes, largeurs) {
 
   appliquer('titre', 'A', function (rl) { rl.setFontSize(16).setFontWeight('bold'); });
   appliquer('note', 'A', function (rl) { rl.setFontColor('#4a5560'); });
-  appliquer('section', 'A:' + der, function (rl) { rl.setFontSize(12).setFontWeight('bold').setBackground('#0c92ab'); });
   appliquer('theme', 'A:' + der, function (rl) { rl.setFontSize(11).setFontWeight('bold').setBackground('#eef6f8'); });
   appliquer('entete', 'A:' + der, function (rl) { rl.setFontWeight('bold').setFontColor('#4a5560'); });
   appliquer('sous-titre', 'A', function (rl) { rl.setFontWeight('bold'); });
@@ -689,7 +941,7 @@ function ecrireTableau_(sh, lignes, largeurs) {
 
   // Titres, notes et commentaires sur toute la largeur (pour l'impression),
   // fusionnés par blocs de lignes consécutives pour limiter les appels.
-  var aFusionner = ['titre', 'note', 'section', 'theme', 'sous-titre', 'commentaire'];
+  var aFusionner = ['titre', 'note', 'theme', 'sous-titre', 'commentaire'];
   var debut = 0;
   for (var n = 1; n <= lignes.length + 1; n++) {
     var fusion = n <= lignes.length && aFusionner.indexOf(lignes[n - 1].s) !== -1;

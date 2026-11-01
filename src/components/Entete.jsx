@@ -1,7 +1,7 @@
 import { useState } from 'react';
 
 // Logo APE 2025 attendu dans public/logo-ape.png. Tant qu'il manque, le nom s'affiche en texte.
-export default function Entete({ site }) {
+export default function Entete() {
   const [logoAbsent, setLogoAbsent] = useState(false);
 
   return (
@@ -25,7 +25,7 @@ export default function Entete({ site }) {
           {logoAbsent && (
             <span className="marque-texte">
               <span className="marque-asso">Association des Parents d'Élèves</span>
-              <span className="marque-college">{site.college}</span>
+              <span className="marque-college">Collège Raymond Queneau</span>
             </span>
           )}
         </a>

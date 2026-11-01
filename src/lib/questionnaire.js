@@ -2,6 +2,7 @@
 // l'interface et les tests. Les mêmes règles existent côté serveur dans
 // apps-script/Code.gs : tests/parite.test.js vérifie qu'elles donnent le même résultat.
 
+export const CLE = 'parents'; // nom du questionnaire dans les données publiées
 export const MAX_TEXTE_DEFAUT = 1000;
 export const MAX_PRECISION = 500;
 export const SUFFIXE_PRECISION = '_precision';
@@ -68,12 +69,12 @@ export function maxTexte(question) {
 }
 
 /** Erreurs d'une étape : { idQuestion: message }. Vide si l'étape est valide. */
-export function erreursTheme(q, data, themeId, reponses, tu) {
+export function erreursTheme(q, data, themeId, reponses) {
   const erreurs = {};
   for (const question of questionsDuTheme(q, themeId, reponses)) {
     const valeur = reponses[question.id];
     if (question.obligatoire && estVide(valeur)) {
-      erreurs[question.id] = tu ? 'Réponds à cette question pour continuer.' : 'Merci de répondre à cette question.';
+      erreurs[question.id] = 'Merci de répondre à cette question.';
     } else if (question.type === 'texte' && typeof valeur === 'string' && valeur.length > maxTexte(question)) {
       erreurs[question.id] = `${maxTexte(question)} caractères maximum.`;
     }
