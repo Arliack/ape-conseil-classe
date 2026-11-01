@@ -36,6 +36,8 @@ var NB_POINTS_PAS_BIEN = 5;
 
 // Cellules de l'onglet Config.
 var CONFIG = { URL: 'B2', VERSION: 'B3', CHARGE_LE: 'B4', COPIE: 'B5' };
+// Adresse utilisée si Config!B2 est vide (site publié depuis le dépôt Arliack/ape-conseil-classe).
+var URL_QUESTIONNAIRE_DEFAUT = 'https://arliack.github.io/ape-conseil-classe/questionnaires.json';
 
 /* ========================================================================== */
 /* Application web                                                             */
@@ -273,8 +275,8 @@ function chargerQuestionnaires_(versionAttendue, forcer) {
 
 function telechargerQuestionnaires_() {
   var sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(ONGLETS.CONFIG);
-  var url = sh ? String(sh.getRange(CONFIG.URL).getValue()).trim() : '';
-  if (!/^https:\/\//.test(url)) throw new Error("URL du questionnaire absente de l'onglet Config (B2).");
+  var url = (sh ? String(sh.getRange(CONFIG.URL).getValue()).trim() : '') || URL_QUESTIONNAIRE_DEFAUT;
+  if (!/^https:\/\//.test(url)) throw new Error("URL du questionnaire invalide dans l'onglet Config (B2).");
   // Paramètre anti-cache : GitHub Pages garde les fichiers 10 min en cache.
   var rep = UrlFetchApp.fetch(url + (url.indexOf('?') === -1 ? '?' : '&') + 't=' + Date.now(), { muteHttpExceptions: true });
   if (rep.getResponseCode() !== 200) throw new Error('Téléchargement impossible (HTTP ' + rep.getResponseCode() + ') : ' + url);
@@ -332,7 +334,7 @@ function assurerOngletConfig_(ss) {
   sh = ss.insertSheet(ONGLETS.CONFIG, 0);
   sh.getRange('A1:B5').setValues([
     ['Paramètre', 'Valeur'],
-    ['URL du questionnaire (questionnaires.json sur le site)', ''],
+    ['URL du questionnaire (questionnaires.json sur le site)', URL_QUESTIONNAIRE_DEFAUT],
     ['Version chargée', ''],
     ['Chargé le', ''],
     ['Copie de secours (ne pas modifier)', '']
@@ -426,7 +428,7 @@ function installer() {
   var config = assurerOngletConfig_(ss);
   if (!String(config.getRange(CONFIG.URL).getValue()).trim()) {
     var rep = ui.prompt('Adresse du questionnaire',
-      'Collez l\'adresse de questionnaires.json sur le site, par exemple :\nhttps://arliack.github.io/ape-conseil-classe/questionnaires.json',
+      'Collez l\'adresse de questionnaires.json sur le site, par exemple :\n' + URL_QUESTIONNAIRE_DEFAUT,
       ui.ButtonSet.OK_CANCEL);
     if (rep.getSelectedButton() !== ui.Button.OK) return;
     config.getRange(CONFIG.URL).setValue(rep.getResponseText().trim());
