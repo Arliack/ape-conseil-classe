@@ -1,0 +1,151 @@
+{
+  "version": "2026-11-01",
+  "site": {
+    "association": "APE du collège Raymond Queneau",
+    "college": "Collège Raymond Queneau",
+    "ville": "Machecoul-Saint-Même",
+    "contact": "ape.queneau@gmail.com",
+    "prochain_conseil": "Les conseils de classe du 1er trimestre ont lieu en décembre 2026 (dates à confirmer).",
+    "conservation": "Les réponses sont supprimées à la fin de l'année scolaire, au plus tard le 31 août 2027."
+  },
+  "echelle4": ["Très bien", "Bien", "Moyen", "Pas bien"],
+  "precision_echelle4": ["Moyen", "Pas bien"],
+  "listes": {
+    "classes": [
+      "6e A", "6e B", "6e C", "6e D",
+      "5e A", "5e B", "5e C",
+      "4e A", "4e B", "4e C", "4e D",
+      "3e A", "3e B", "3e C"
+    ],
+    "matieres": [
+      "Français",
+      "Mathématiques",
+      "Histoire-géographie / EMC",
+      "Anglais",
+      "LV2 (espagnol, allemand…)",
+      "SVT",
+      "Physique-chimie",
+      "Technologie",
+      "Arts plastiques",
+      "Éducation musicale",
+      "EPS",
+      "Latin"
+    ]
+  },
+  "questionnaires": {
+    "eleves": {
+      "titre": "Questionnaire élèves",
+      "bouton_accueil": "Je suis élève",
+      "intro": "Tes réponses sont anonymes. Elles sont lues par les délégués de parents pour préparer le conseil de classe, et ne sont jamais transmises avec ton nom.",
+      "precision_libelle": "Précise si tu veux",
+      "merci": "Merci pour tes réponses ! Les délégués de parents vont les lire pour préparer le conseil de classe.",
+      "themes": [
+        { "id": "toi", "titre": "Toi", "intro": "Ta classe sert seulement à regrouper les réponses. Ton nom est facultatif et n'est jamais montré aux délégués avec tes réponses." },
+        { "id": "vie_classe", "titre": "Vie de classe" },
+        { "id": "rythme", "titre": "Rythme et charge de travail" },
+        { "id": "apprentissage", "titre": "Apprentissage" },
+        { "id": "vie_college", "titre": "Vie au collège" },
+        { "id": "bien_etre", "titre": "Bien-être", "intro": "Cette question est facultative. Tu peux passer à la suite sans répondre." },
+        { "id": "orientation", "titre": "Orientation", "afficher_si": { "niveau": ["4e", "3e"] } },
+        { "id": "fin", "titre": "Pour finir", "intro": "Quelques mots suffisent." }
+      ],
+      "questions": [
+        { "id": "classe", "theme": "toi", "type": "choix_unique", "libelle": "Ta classe", "obligatoire": true, "liste": "classes", "affichage": "liste" },
+        { "id": "nom", "theme": "toi", "type": "texte", "libelle": "Ton nom et prénom (facultatif)", "obligatoire": false, "nominatif": true, "max": 80, "court": true },
+
+        { "id": "ambiance_classe", "theme": "vie_classe", "type": "echelle4", "libelle": "L'ambiance dans ta classe", "obligatoire": true },
+        { "id": "relations_autres_classes", "theme": "vie_classe", "type": "echelle4", "libelle": "Tes relations avec les élèves des autres classes", "obligatoire": true },
+        { "id": "relations_adultes", "theme": "vie_classe", "type": "echelle4", "libelle": "Tes relations avec les adultes du collège (professeurs, surveillants, personnel de cantine)", "obligatoire": true },
+        { "id": "securite", "theme": "vie_classe", "type": "echelle4", "libelle": "Ton sentiment de sécurité au collège", "obligatoire": true },
+        { "id": "classe_points_forts", "theme": "vie_classe", "type": "texte", "libelle": "Ce qui va bien dans ta classe ?", "obligatoire": false, "max": 300 },
+
+        { "id": "emploi_du_temps", "theme": "rythme", "type": "echelle4", "libelle": "Ton emploi du temps", "obligatoire": true },
+        { "id": "temps_devoirs", "theme": "rythme", "type": "choix_unique", "libelle": "Le temps que tu passes aux devoirs à la maison, par jour", "obligatoire": true, "options": ["Moins de 30 min", "30 min à 1 h", "1 h à 2 h", "Plus de 2 h"] },
+        { "id": "frequence_controles", "theme": "rythme", "type": "echelle4", "libelle": "Le rythme des contrôles et des devoirs", "obligatoire": true },
+        { "id": "fatigue", "theme": "rythme", "type": "echelle4", "libelle": "Ta forme en fin de journée (fatigue)", "obligatoire": true },
+
+        { "id": "comprehension", "theme": "apprentissage", "type": "echelle4", "libelle": "Tu comprends les cours", "obligatoire": true },
+        { "id": "matieres_aise", "theme": "apprentissage", "type": "choix_multiple", "libelle": "Les matières où tu es à l'aise", "obligatoire": false, "liste": "matieres" },
+        { "id": "matieres_difficulte", "theme": "apprentissage", "type": "choix_multiple", "libelle": "Les matières où tu as des difficultés", "obligatoire": false, "liste": "matieres" },
+        { "id": "aide_souhaitee", "theme": "apprentissage", "type": "choix_multiple", "libelle": "Qu'est-ce qui t'aiderait ?", "obligatoire": false, "options": ["Plus d'explications en classe", "De l'aide aux devoirs", "Du rattrapage", "Autre"], "precision_si": ["Autre"] },
+        { "id": "rattrapage_absence", "theme": "apprentissage", "type": "echelle4", "libelle": "Le rattrapage des cours quand tu es absent(e)", "aide": "Si tu n'as jamais été absent(e), laisse vide.", "obligatoire": false },
+
+        { "id": "temps_midi", "theme": "vie_college", "type": "echelle4", "libelle": "L'organisation du temps du midi (self, activités)", "obligatoire": true },
+        { "id": "numerique", "theme": "vie_college", "type": "echelle4", "libelle": "Le numérique (ENT, Pronote)", "obligatoire": true },
+        { "id": "transport", "theme": "vie_college", "type": "choix_multiple", "libelle": "Comment viens-tu au collège ?", "obligatoire": true, "options": ["À pied", "Vélo ou trottinette", "Voiture", "Transport scolaire", "Autre"], "precision_si": ["Autre"] },
+        { "id": "trajet", "theme": "vie_college", "type": "echelle4", "libelle": "Ton trajet : confort et sécurité", "obligatoire": true },
+
+        {
+          "id": "harcelement", "theme": "bien_etre", "type": "choix_unique",
+          "libelle": "Es-tu témoin ou victime de moqueries, de harcèlement ou de violence (au collège, sur le trajet ou en ligne) ?",
+          "obligatoire": false,
+          "options": ["Non", "Je préfère ne pas répondre", "Oui"],
+          "precision_si": ["Oui"],
+          "precision_libelle": "Si tu veux, explique ce qui se passe (sans donner de noms)",
+          "aide_si": {
+            "valeurs": ["Oui"],
+            "titre": "Tu n'es pas seul(e).",
+            "texte": "Ce qui t'arrive n'est pas normal et ce n'est pas de ta faute. Parles-en à un adulte de confiance : un parent, le CPE, l'infirmière, un professeur. Tu peux aussi appeler, gratuitement et anonymement :",
+            "contacts": [
+              { "numero": "3018", "texte": "harcèlement et cyberharcèlement (appel, tchat, appli)" },
+              { "numero": "3020", "texte": "Non au harcèlement" }
+            ]
+          }
+        },
+
+        { "id": "orientation_info", "theme": "orientation", "type": "echelle4", "libelle": "Tu te sens informé(e) sur la suite (lycée, orientation, stages)", "obligatoire": false },
+        { "id": "orientation_inquietudes", "theme": "orientation", "type": "texte", "libelle": "As-tu des inquiétudes ou des questions sur la suite ?", "obligatoire": false, "max": 500 },
+
+        { "id": "a_garder", "theme": "fin", "type": "texte", "libelle": "Une chose à garder au collège", "obligatoire": false, "max": 300, "court": true },
+        { "id": "a_changer", "theme": "fin", "type": "texte", "libelle": "Une chose à changer", "obligatoire": false, "max": 300, "court": true },
+        { "id": "idee", "theme": "fin", "type": "texte", "libelle": "Une idée concrète", "obligatoire": false, "max": 300, "court": true }
+      ]
+    },
+
+    "parents": {
+      "titre": "Questionnaire parents",
+      "bouton_accueil": "Je suis parent",
+      "intro": "Vos réponses sont lues par les délégués de parents pour préparer le conseil de classe. Le nom de votre enfant est facultatif et n'apparaît jamais dans la synthèse.",
+      "precision_libelle": "Précisez si vous le souhaitez",
+      "merci": "Merci pour vos réponses ! Les délégués de parents vont les lire pour préparer le conseil de classe.",
+      "themes": [
+        { "id": "enfant", "titre": "Votre enfant", "intro": "Si vous avez plusieurs enfants au collège, répondez une fois par enfant." },
+        { "id": "integration", "titre": "Intégration" },
+        { "id": "rythme", "titre": "Rythme" },
+        { "id": "rattrapage", "titre": "Absences" },
+        { "id": "evenements", "titre": "Depuis la rentrée" },
+        { "id": "scolarite", "titre": "Scolarité" },
+        { "id": "communication", "titre": "Communication" },
+        { "id": "autres", "titre": "Autres sujets" },
+        { "id": "fin", "titre": "Pour finir", "intro": "Quelques mots suffisent." }
+      ],
+      "questions": [
+        { "id": "classe", "theme": "enfant", "type": "choix_unique", "libelle": "Classe de votre enfant", "obligatoire": true, "liste": "classes", "affichage": "liste" },
+        { "id": "nom", "theme": "enfant", "type": "texte", "libelle": "Nom et prénom de votre enfant (facultatif)", "obligatoire": false, "nominatif": true, "max": 80, "court": true },
+
+        { "id": "integration", "theme": "integration", "type": "echelle4", "libelle": "L'intégration de votre enfant dans sa classe", "obligatoire": true },
+
+        { "id": "emploi_du_temps", "theme": "rythme", "type": "echelle4", "libelle": "Son emploi du temps", "obligatoire": true },
+        { "id": "travail_maison", "theme": "rythme", "type": "echelle4", "libelle": "Le travail à la maison (rythme, quantité)", "obligatoire": true },
+        { "id": "forme_motivation", "theme": "rythme", "type": "echelle4", "libelle": "Sa forme et sa motivation, telles que vous les observez à la maison", "obligatoire": true },
+
+        { "id": "rattrapage_absence", "theme": "rattrapage", "type": "echelle4", "libelle": "Le rattrapage des cours en cas d'absence", "aide": "Laissez vide si votre enfant n'a pas été absent.", "obligatoire": false },
+
+        { "id": "evenements_exceptionnels", "theme": "evenements", "type": "choix_unique", "libelle": "Y a-t-il eu des éléments exceptionnels depuis la rentrée (incident, changement, événement familial…) ?", "aide": "Dites seulement ce qui est utile au conseil de classe. Évitez les informations de santé détaillées.", "obligatoire": false, "options": ["Non", "Oui"], "precision_si": ["Oui"] },
+
+        { "id": "difficultes", "theme": "scolarite", "type": "choix_unique", "libelle": "Votre enfant rencontre-t-il des difficultés dans certaines matières ?", "obligatoire": true, "options": ["Non", "Oui"] },
+        { "id": "difficultes_matieres", "theme": "scolarite", "type": "choix_multiple", "libelle": "Lesquelles ?", "obligatoire": false, "liste": "matieres", "afficher_si": { "question": "difficultes", "valeurs": ["Oui"] } },
+        { "id": "rencontre_profs", "theme": "scolarite", "type": "choix_unique", "libelle": "Avez-vous rencontré les professeurs concernés ou le professeur principal ?", "obligatoire": false, "options": ["Oui, les professeurs concernés", "Oui, le professeur principal", "Oui, les deux", "Pas encore"], "afficher_si": { "question": "difficultes", "valeurs": ["Oui"] } },
+        { "id": "soutien_scolaire", "theme": "scolarite", "type": "choix_unique", "libelle": "Votre enfant a-t-il un soutien scolaire (au collège ou à l'extérieur) ?", "obligatoire": false, "options": ["Non", "Oui"], "precision_si": ["Oui"], "precision_libelle": "Lequel ?" },
+
+        { "id": "communication", "theme": "communication", "type": "echelle4", "libelle": "La communication avec le collège (Pronote, mails, réunions)", "obligatoire": true },
+
+        { "id": "autres_sujets", "theme": "autres", "type": "texte", "libelle": "Transports, cantine, autres sujets : vos remarques", "obligatoire": false, "max": 1000 },
+
+        { "id": "a_garder", "theme": "fin", "type": "texte", "libelle": "Une chose à garder", "obligatoire": false, "max": 300, "court": true },
+        { "id": "a_changer", "theme": "fin", "type": "texte", "libelle": "Une chose à changer", "obligatoire": false, "max": 300, "court": true },
+        { "id": "suggestion", "theme": "fin", "type": "texte", "libelle": "Une suggestion", "obligatoire": false, "max": 300, "court": true }
+      ]
+    }
+  }
+}
