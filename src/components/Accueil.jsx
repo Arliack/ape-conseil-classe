@@ -10,7 +10,6 @@ function dateCourte(iso) {
 }
 
 export default function Accueil({ data }) {
-  const { site } = data;
   const q = data.questionnaires[CLE];
   const deja = lireDejaRepondu(CLE);
 
@@ -44,24 +43,6 @@ export default function Accueil({ data }) {
             <strong>Qui les lit :</strong> les délégués de parents de la classe et le bureau de l'APE. Elles
             ne sont pas transmises au collège avec un nom : les délégués présentent une synthèse anonyme.
           </li>
-          <li>
-            <strong>Le nom de l'enfant :</strong> facultatif. Il n'apparaît jamais dans la synthèse.
-          </li>
-          {site.conservation && (
-            <li>
-              <strong>Combien de temps :</strong> {site.conservation}
-            </li>
-          )}
-          <li>
-            <strong>Où :</strong> dans un tableau Google privé de l'APE. Ce site ne dépose aucun cookie et ne
-            mesure pas les visites.
-          </li>
-          {site.contact && (
-            <li>
-              <strong>Contact :</strong> pour toute question ou pour faire supprimer une réponse, écrivez à{' '}
-              <a href={`mailto:${site.contact}`}>{site.contact}</a>.
-            </li>
-          )}
         </ul>
       </section>
     </>
