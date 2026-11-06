@@ -9,9 +9,9 @@ const gs = chargerAppsScript();
 const brut = (x) => JSON.parse(JSON.stringify(x));
 const TYPES = ['echelle4', 'choix_unique', 'choix_multiple', 'texte'];
 
-// Une ligne de l'onglet : [Masquer, Thème, Question, Type, Réponses, Obligatoire, Précisez si, Afficher si, Aide, Libellé précision, Max, Identifiant]
+// Une ligne de l'onglet : [Masquer, Thème, Question, Type, Réponses, Obligatoire, Précisez si, Afficher si, Niveaux, Aide, Libellé précision, Max, Identifiant]
 const ligne = (theme, question, type, options = '', extra = {}) => {
-  const l = [false, theme, question, type, options, false, '', '', '', '', '', ''];
+  const l = [false, theme, question, type, options, false, '', '', '', '', '', '', ''];
   for (const [col, v] of Object.entries(extra)) l[gs.COL[col]] = v;
   return l;
 };
@@ -49,6 +49,7 @@ test('structure du questionnaire publié', () => {
     for (const o of optionsDe(qu, data)) assert.ok(!o.includes(';'));
     if (qu.afficher_si?.question) assert.ok(ids.slice(0, i).includes(qu.afficher_si.question));
     if (qu.afficher_si?.niveau) for (const n of qu.afficher_si.niveau) assert.ok(niveaux.has(n));
+    for (const n of qu.niveaux || []) assert.ok(niveaux.has(n));
   });
 });
 
@@ -87,6 +88,22 @@ test('réponses possibles, listes, précision, condition, masquage', () => {
   assert.deepEqual(qs[3].afficher_si, { niveau: ['4e', '3e'] });
   assert.deepEqual(qs[3].precision_si, []);
   assert.equal(res.ids[4], '', 'pas d\'identifiant pour une ligne masquée sans identifiant');
+});
+
+test('colonne Niveaux', () => {
+  const res = construire([
+    ligne('Orientation', 'Le stage de 3e', 'Texte', '', { NIVEAUX: '3e' }),
+    ligne('Orientation', 'L\'orientation', 'Échelle 4 niveaux', '', { NIVEAUX: '4e ; 3e' }),
+    ligne('Orientation', 'Variante', 'Texte', '', { NIVEAUX: '4e et 3e' }),
+    ligne('Divers', 'Tous', 'Texte', '', { NIVEAUX: '6e ; 5e ; 4e ; 3e' }),
+  ]);
+  assert.deepEqual(res.erreurs, []);
+  const qs = res.data.questionnaires.parents.questions.slice(2);
+  assert.deepEqual(qs[0].niveaux, ['3e']);
+  assert.deepEqual(qs[1].niveaux, ['4e', '3e']);
+  assert.deepEqual(qs[2].niveaux, ['4e', '3e']);
+  assert.equal(qs[3].niveaux, undefined, 'tous les niveaux = pas de filtre');
+  assert.match(construire([ligne('A', 'Q', 'Texte', '', { NIVEAUX: '2nde' })]).erreurs[0], /niveau « 2nde » inconnu \(niveaux des classes : 6e, 5e, 4e, 3e\)/);
 });
 
 test('erreurs signalées avec le numéro de ligne', () => {

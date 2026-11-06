@@ -41,7 +41,11 @@ export function conditionRemplie(afficherSi, reponses) {
 
 export function questionVisible(q, question, reponses) {
   const theme = q.themes.find((t) => t.id === question.theme);
-  return conditionRemplie(theme && theme.afficher_si, reponses) && conditionRemplie(question.afficher_si, reponses);
+  return (
+    conditionRemplie(theme && theme.afficher_si, reponses) &&
+    conditionRemplie(question.afficher_si, reponses) &&
+    (!question.niveaux || question.niveaux.includes(niveauDe(reponses.classe)))
+  );
 }
 
 export function questionsDuTheme(q, themeId, reponses) {

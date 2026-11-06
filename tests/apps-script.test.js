@@ -93,6 +93,16 @@ test('validerReponse_ ignore les questions masquées et les précisions non déc
   assert.equal(val.champ_inconnu, undefined);
 });
 
+test('validerReponse_ : question réservée à certains niveaux', () => {
+  const d = JSON.parse(JSON.stringify(data));
+  const q = d.questionnaires.parents.questions.find((x) => x.id === 'communication');
+  q.niveaux = ['4e', '3e'];
+  assert.equal(gs.validerReponse_(reponse({ communication: undefined }), d).ok, true, 'obligatoire mais masquée en 6e');
+  assert.equal(gs.validerReponse_(reponse({ communication: 'Bien' }), d).reponse.valeurs.communication, undefined, 'ignorée en 6e');
+  assert.match(gs.validerReponse_(reponse({ classe: '3e A', communication: undefined }), d).erreur, /obligatoire/);
+  assert.equal(gs.validerReponse_(reponse({ classe: '3e A' }), d).reponse.valeurs.communication, 'Très bien');
+});
+
 test('neutraliserFormule_ : aucun texte ne devient formule, nombre ou date', () => {
   assert.equal(gs.neutraliserFormule_('=IMPORTXML("http://x")'), '\'=IMPORTXML("http://x")');
   assert.equal(gs.neutraliserFormule_('+33 6 00'), "'+33 6 00");

@@ -59,6 +59,7 @@ l'onglet sans risque.
 | **Obligatoire** | Cocher si la question doit avoir une réponse. |
 | **Précisez si** | Réponses qui font apparaître un champ « Précisez » (`Oui`, ou `Moyen ; Pas bien`). Vide sur une échelle : Moyen et Pas bien. `aucune` pour ne jamais l'afficher. |
 | **Afficher si** | Question visible seulement selon une réponse précédente : `difficultes = Oui` (identifiant ou texte d'une question placée **avant**). `niveau = 4e ; 3e` selon la classe. |
+| **Niveaux** | Question posée seulement aux parents d'un enfant de ces niveaux : `4e ; 3e` (liste déroulante, autres combinaisons possibles). Vide : tous les niveaux. Les étapes qui ne contiennent plus de question disparaissent. |
 | **Aide** | Petite phrase sous la question. |
 | **Libellé de « Précisez »** | Remplace « Précisez si vous le souhaitez » pour cette question. |
 | **Max caractères** | Longueur maximale d'un texte (1000 par défaut). |

@@ -44,7 +44,7 @@ var IDS_RESERVES = ['horodatage', 'id_reponse', 'version', 'classe', 'nom', 'sit
 
 var COL = {
   MASQUER: 0, THEME: 1, QUESTION: 2, TYPE: 3, OPTIONS: 4, OBLIGATOIRE: 5,
-  PRECISION_SI: 6, AFFICHER_SI: 7, AIDE: 8, LIBELLE_PRECISION: 9, MAX: 10, ID: 11
+  PRECISION_SI: 6, AFFICHER_SI: 7, NIVEAUX: 8, AIDE: 9, LIBELLE_PRECISION: 10, MAX: 11, ID: 12
 };
 var ENTETES_QUESTIONS = [
   ['Masquer', 'Cocher pour retirer la question du formulaire sans perdre sa colonne de réponses.'],
@@ -55,6 +55,7 @@ var ENTETES_QUESTIONS = [
   ['Obligatoire', 'Cocher si la question doit avoir une réponse.'],
   ['Précisez si', 'Réponses (séparées par « ; ») qui font apparaître un champ « Précisez ». Vide sur une échelle = Moyen ; Pas bien. Écrire « aucune » pour ne jamais l\'afficher.'],
   ['Afficher si', 'Condition d\'affichage, par exemple : difficultes = Oui (identifiant d\'une question placée avant = réponse(s) séparées par « ; »). Vide = toujours affichée.'],
+  ['Niveaux', 'Niveaux de classe concernés, par exemple « 4e ; 3e » : la question n\'est posée qu\'aux parents d\'un enfant de ces niveaux. Vide = tous les niveaux.'],
   ['Aide', 'Petite phrase d\'aide sous la question (facultatif).'],
   ['Libellé de « Précisez »', 'Remplace le libellé du champ de précision pour cette question (facultatif).'],
   ['Max caractères', 'Longueur maximale d\'un texte (1000 par défaut).'],
@@ -67,25 +68,26 @@ var TYPES = {
   'texte': { type: 'texte' },
   'texte court': { type: 'texte', court: true }
 };
+var CHOIX_NIVEAUX = ['4e ; 3e', '3e', '4e', '5e', '6e', '6e ; 5e', '5e ; 4e'];   // liste déroulante (autres combinaisons acceptées)
 var LISTES = { '[classes]': 'classes', '[matières]': 'matieres', '[matieres]': 'matieres' };
 
 /** Questions installées au départ (modifiables ensuite dans l'onglet). */
 var QUESTIONS_DEPART = [
-  [false, 'Intégration', "L'intégration de votre enfant dans sa classe", 'Échelle 4 niveaux', '', true, '', '', '', '', '', 'integration'],
-  [false, 'Rythme', 'Son emploi du temps', 'Échelle 4 niveaux', '', true, '', '', '', '', '', 'emploi_du_temps'],
-  [false, 'Rythme', 'Le travail à la maison (rythme, quantité)', 'Échelle 4 niveaux', '', true, '', '', '', '', '', 'travail_maison'],
-  [false, 'Rythme', 'Sa forme et sa motivation, telles que vous les observez à la maison', 'Échelle 4 niveaux', '', true, '', '', '', '', '', 'forme_motivation'],
-  [false, 'Absences', "Le rattrapage des cours en cas d'absence", 'Échelle 4 niveaux', '', false, '', '', "Laissez vide si votre enfant n'a pas été absent.", '', '', 'rattrapage_absence'],
-  [false, 'Depuis la rentrée', 'Y a-t-il eu des éléments exceptionnels depuis la rentrée (incident, changement, événement familial…) ?', 'Choix unique', 'Non ; Oui', false, 'Oui', '', 'Dites seulement ce qui est utile au conseil de classe. Évitez les informations de santé détaillées.', '', '', 'evenements_exceptionnels'],
-  [false, 'Scolarité', 'Votre enfant rencontre-t-il des difficultés dans certaines matières ?', 'Choix unique', 'Non ; Oui', true, '', '', '', '', '', 'difficultes'],
-  [false, 'Scolarité', 'Lesquelles ?', 'Choix multiple', '[Matières]', false, '', 'difficultes = Oui', '', '', '', 'difficultes_matieres'],
-  [false, 'Scolarité', 'Avez-vous rencontré les professeurs concernés ou le professeur principal ?', 'Choix unique', 'Oui, les professeurs concernés ; Oui, le professeur principal ; Oui, les deux ; Pas encore', false, '', 'difficultes = Oui', '', '', '', 'rencontre_profs'],
-  [false, 'Scolarité', 'Votre enfant a-t-il un soutien scolaire (au collège ou à l\'extérieur) ?', 'Choix unique', 'Non ; Oui', false, 'Oui', '', '', 'Lequel ?', '', 'soutien_scolaire'],
-  [false, 'Communication', 'La communication avec le collège (Pronote, mails, réunions)', 'Échelle 4 niveaux', '', true, '', '', '', '', '', 'communication'],
-  [false, 'Autres sujets', 'Transports, cantine, autres sujets : vos remarques', 'Texte', '', false, '', '', '', '', 1000, 'autres_sujets'],
-  [false, 'Pour finir', 'Une chose à garder', 'Texte court', '', false, '', '', '', '', 300, 'a_garder'],
-  [false, 'Pour finir', 'Une chose à changer', 'Texte court', '', false, '', '', '', '', 300, 'a_changer'],
-  [false, 'Pour finir', 'Une suggestion', 'Texte court', '', false, '', '', '', '', 300, 'suggestion']
+  [false, 'Intégration', "L'intégration de votre enfant dans sa classe", 'Échelle 4 niveaux', '', true, '', '', '', '', '', '', 'integration'],
+  [false, 'Rythme', 'Son emploi du temps', 'Échelle 4 niveaux', '', true, '', '', '', '', '', '', 'emploi_du_temps'],
+  [false, 'Rythme', 'Le travail à la maison (rythme, quantité)', 'Échelle 4 niveaux', '', true, '', '', '', '', '', '', 'travail_maison'],
+  [false, 'Rythme', 'Sa forme et sa motivation, telles que vous les observez à la maison', 'Échelle 4 niveaux', '', true, '', '', '', '', '', '', 'forme_motivation'],
+  [false, 'Absences', "Le rattrapage des cours en cas d'absence", 'Échelle 4 niveaux', '', false, '', '', '', "Laissez vide si votre enfant n'a pas été absent.", '', '', 'rattrapage_absence'],
+  [false, 'Depuis la rentrée', 'Y a-t-il eu des éléments exceptionnels depuis la rentrée (incident, changement, événement familial…) ?', 'Choix unique', 'Non ; Oui', false, 'Oui', '', '', 'Dites seulement ce qui est utile au conseil de classe. Évitez les informations de santé détaillées.', '', '', 'evenements_exceptionnels'],
+  [false, 'Scolarité', 'Votre enfant rencontre-t-il des difficultés dans certaines matières ?', 'Choix unique', 'Non ; Oui', true, '', '', '', '', '', '', 'difficultes'],
+  [false, 'Scolarité', 'Lesquelles ?', 'Choix multiple', '[Matières]', false, '', 'difficultes = Oui', '', '', '', '', 'difficultes_matieres'],
+  [false, 'Scolarité', 'Avez-vous rencontré les professeurs concernés ou le professeur principal ?', 'Choix unique', 'Oui, les professeurs concernés ; Oui, le professeur principal ; Oui, les deux ; Pas encore', false, '', 'difficultes = Oui', '', '', '', '', 'rencontre_profs'],
+  [false, 'Scolarité', 'Votre enfant a-t-il un soutien scolaire (au collège ou à l\'extérieur) ?', 'Choix unique', 'Non ; Oui', false, 'Oui', '', '', '', 'Lequel ?', '', 'soutien_scolaire'],
+  [false, 'Communication', 'La communication avec le collège (Pronote, mails, réunions)', 'Échelle 4 niveaux', '', true, '', '', '', '', '', '', 'communication'],
+  [false, 'Autres sujets', 'Transports, cantine, autres sujets : vos remarques', 'Texte', '', false, '', '', '', '', '', 1000, 'autres_sujets'],
+  [false, 'Pour finir', 'Une chose à garder', 'Texte court', '', false, '', '', '', '', '', 300, 'a_garder'],
+  [false, 'Pour finir', 'Une chose à changer', 'Texte court', '', false, '', '', '', '', '', 300, 'a_changer'],
+  [false, 'Pour finir', 'Une suggestion', 'Texte court', '', false, '', '', '', '', '', 300, 'suggestion']
 ];
 
 /* Onglet « Config » : paramètres (colonnes A-B) et listes Classes / Matières (colonnes D-E). */
@@ -263,6 +265,15 @@ function construireQuestionnaire_(lignes, config, version) {
       }
     }
 
+    var brutNiveaux = String(l[COL.NIVEAUX] || '').trim();
+    if (brutNiveaux) {
+      var niveaux = brutNiveaux.split(/\s*(?:;|,|\n|\bet\b)\s*/).map(function (x) { return x.trim(); }).filter(Boolean);
+      var connus = niveauxDesClasses_(config.classes);
+      var horsNiveau = niveaux.filter(function (x) { return connus.indexOf(x) === -1; })[0];
+      if (horsNiveau) { erreurs.push(n + 'niveau « ' + horsNiveau + ' » inconnu (niveaux des classes : ' + connus.join(', ') + ').'); return; }
+      if (niveaux.length < connus.length) q.niveaux = niveaux;
+    }
+
     var aide = String(l[COL.AIDE] || '').trim();
     if (aide) q.aide = aide;
     var libP = String(l[COL.LIBELLE_PRECISION] || '').trim();
@@ -315,6 +326,13 @@ function construireQuestionnaire_(lignes, config, version) {
       }
     }
   };
+}
+
+/** « 6e A », « 6e B », « 3e A » → ['6e', '3e'] */
+function niveauxDesClasses_(classes) {
+  var n = [];
+  classes.forEach(function (c) { var x = niveauDe_(c); if (x && n.indexOf(x) === -1) n.push(x); });
+  return n;
 }
 
 function decouper_(txt) {
@@ -471,7 +489,8 @@ function conditionRemplie_(si, rep) {
 
 function questionVisible_(q, question, rep) {
   var theme = q.themes.filter(function (t) { return t.id === question.theme; })[0];
-  return conditionRemplie_(theme && theme.afficher_si, rep) && conditionRemplie_(question.afficher_si, rep);
+  return conditionRemplie_(theme && theme.afficher_si, rep) && conditionRemplie_(question.afficher_si, rep) &&
+    (!question.niveaux || question.niveaux.indexOf(niveauDe_(rep.classe)) !== -1);
 }
 
 function precisionVisible_(question, valeur, data) {
@@ -603,6 +622,12 @@ function enregistrerReponse_(r, data) {
 /* ========================================================================== */
 
 function onOpen() {
+  try {
+    var sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(ONGLETS.QUESTIONS);
+    if (sh) assurerColonnesQuestions_(sh);
+  } catch (err) {
+    console.warn(err);
+  }
   SpreadsheetApp.getUi().createMenu('APE')
     .addItem('Publier les questions', 'publierQuestions')
     .addItem('Mettre à jour la synthèse', 'buildSynthese')
@@ -619,10 +644,10 @@ function publierQuestions() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sh = ss.getSheetByName(ONGLETS.QUESTIONS);
   if (!sh) throw new Error('Onglet « Questions » introuvable : lancer APE > Installer / réparer le classeur.');
-  var nb = Math.max(sh.getLastRow() - 1, 0);
-  var lignes = nb ? sh.getRange(2, 1, nb, ENTETES_QUESTIONS.length).getValues() : [];
+  var lu = lireLignesQuestions_(sh);
+  var nb = lu.lignes.length;
   var version = Utilities.formatDate(new Date(), 'Europe/Paris', "yyyy-MM-dd'T'HH:mm:ss");
-  var res = construireQuestionnaire_(lignes, lireConfig_(ss), version);
+  var res = construireQuestionnaire_(lu.lignes, lireConfig_(ss), version);
 
   if (res.erreurs.length) {
     SpreadsheetApp.getUi().alert('Questions non publiées',
@@ -630,12 +655,56 @@ function publierQuestions() {
       SpreadsheetApp.getUi().ButtonSet.OK);
     return;
   }
-  if (nb) sh.getRange(2, COL.ID + 1, nb, 1).setValues(res.ids.map(function (id) { return [id]; }));
+  if (nb) sh.getRange(2, lu.colonnes[COL.ID] + 1, nb, 1).setValues(res.ids.map(function (id) { return [id]; }));
   sauverPublication_(res.data);
   assurerOngletReponses_(ss, res.data);
   ecrireParam_(ss, PARAMS.VERSION, version);
   ecrireParam_(ss, PARAMS.PUBLIE_LE, new Date());
   ss.toast(res.data.questionnaires[CLE].questions.length + ' questions en ligne (version ' + version + ').', 'Questions publiées', 8);
+}
+
+/**
+ * Lit l'onglet « Questions » par nom d'en-tête (les colonnes peuvent être déplacées) et renvoie
+ * les lignes dans l'ordre de COL. colonnes[k] = index (0-based) dans l'onglet de la colonne k.
+ */
+function lireLignesQuestions_(sh) {
+  assurerColonnesQuestions_(sh);
+  var valeurs = sh.getDataRange().getValues();
+  var entetes = valeurs[0].map(function (h) { return String(h).trim(); });
+  var colonnes = ENTETES_QUESTIONS.map(function (e) { return entetes.indexOf(e[0]); });
+  var lignes = valeurs.slice(1).map(function (l) {
+    return colonnes.map(function (c) { return l[c]; });
+  });
+  return { lignes: lignes, colonnes: colonnes };
+}
+
+/** Ajoute les colonnes manquantes (onglet créé par une version précédente), à leur place logique. */
+function assurerColonnesQuestions_(sh) {
+  var lire = function () {
+    return sh.getRange(1, 1, 1, Math.max(sh.getLastColumn(), 1)).getValues()[0].map(function (h) { return String(h).trim(); });
+  };
+  var entetes = lire();
+  ENTETES_QUESTIONS.forEach(function (e, k) {
+    if (entetes.indexOf(e[0]) !== -1) return;
+    var avant = k > 0 ? entetes.indexOf(ENTETES_QUESTIONS[k - 1][0]) : -1;
+    var col;
+    if (avant === -1) {
+      col = sh.getLastColumn() + 1;
+    } else {
+      sh.insertColumnAfter(avant + 1);
+      col = avant + 2;
+    }
+    sh.getRange(1, col).setValue(e[0]).setNote(e[1]).setFontWeight('bold').setBackground('#eef6f8');
+    if (k === COL.NIVEAUX) {
+      sh.getRange(2, col, sh.getMaxRows() - 1, 1).clearDataValidations().setDataValidation(validationNiveaux_());
+      sh.setColumnWidth(col, 110);
+    }
+    entetes = lire();
+  });
+}
+
+function validationNiveaux_() {
+  return SpreadsheetApp.newDataValidation().requireValueInList(CHOIX_NIVEAUX, true).setAllowInvalid(true).build();
 }
 
 function ecrireParam_(ss, nom, valeur) {
@@ -704,12 +773,13 @@ function assurerOngletQuestions_(ss) {
   sh.getRange(2, COL.TYPE + 1, lignes, 1).setDataValidation(SpreadsheetApp.newDataValidation()
     .requireValueInList(['Échelle 4 niveaux', 'Choix unique', 'Choix multiple', 'Texte', 'Texte court'], true)
     .setAllowInvalid(false).build());
+  sh.getRange(2, COL.NIVEAUX + 1, lignes, 1).setDataValidation(validationNiveaux_());
   // Après insertCheckboxes (qui met toutes les cases à faux), pour garder les cases cochées de départ.
   sh.getRange(2, 1, QUESTIONS_DEPART.length, nbCol).setValues(QUESTIONS_DEPART);
 
   sh.getRange(2, 1, lignes, nbCol).setVerticalAlignment('top').setWrap(true);
   sh.getRange(2, COL.ID + 1, lignes, 1).setFontColor('#4a5560');
-  [70, 140, 360, 140, 260, 90, 120, 170, 240, 160, 90, 170].forEach(function (w, i) { sh.setColumnWidth(i + 1, w); });
+  [70, 140, 360, 140, 260, 90, 120, 170, 110, 240, 160, 90, 170].forEach(function (w, i) { sh.setColumnWidth(i + 1, w); });
   sh.setFrozenRows(1);
   return sh;
 }

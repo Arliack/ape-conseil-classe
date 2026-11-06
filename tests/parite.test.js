@@ -8,9 +8,14 @@ import { aleatoire, chargerAppsScript, questionnaireExemple } from './outils.js'
 import { construirePayload, erreursTheme, optionsDe, precisionSi, themesVisibles } from '../src/lib/questionnaire.js';
 
 const gs = chargerAppsScript();
-const data = questionnaireExemple();
+// Questions de départ, plus une variante où deux questions sont réservées aux 4e / 3e.
+const exemple = questionnaireExemple();
+const avecNiveaux = JSON.parse(JSON.stringify(exemple));
+for (const id of ['communication', 'rattrapage_absence']) {
+  avecNiveaux.questionnaires.parents.questions.find((x) => x.id === id).niveaux = ['4e', '3e'];
+}
 
-function tirerReponses(q, hasard) {
+function tirerReponses(data, q, hasard) {
   const choisir = (liste) => liste[Math.floor(hasard() * liste.length)];
   const r = {};
   for (const qu of q.questions) {
@@ -28,12 +33,13 @@ function tirerReponses(q, hasard) {
   return r;
 }
 
-for (const cle of Object.keys(data.questionnaires)) {
-  test(`parité front / script : ${cle}`, () => {
+for (const [nom, data] of [['départ', exemple], ['avec niveaux', avecNiveaux]]) {
+  const cle = 'parents';
+  test(`parité front / script : ${nom}`, () => {
     const q = data.questionnaires[cle];
     const hasard = aleatoire(2026);
     for (let i = 0; i < 300; i++) {
-      const reponses = tirerReponses(q, hasard);
+      const reponses = tirerReponses(data, q, hasard);
       const etapesValides = themesVisibles(q, reponses).every((t) => !Object.keys(erreursTheme(q, data, t.id, reponses)).length);
       assert.ok(etapesValides, 'le tirage doit produire des réponses valides');
 
