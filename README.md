@@ -63,7 +63,7 @@ l'onglet sans risque.
 | **Aide** | Petite phrase sous la question. |
 | **Libellé de « Précisez »** | Remplace « Précisez si vous le souhaitez » pour cette question. |
 | **Max caractères** | Longueur maximale d'un texte (1000 par défaut). |
-| **Identifiant** | Rempli à la publication : c'est le nom de la colonne dans `Reponses_Parents`. |
+| **Identifiant** | Rempli à la publication : c'est le nom de la colonne dans `Reponses_Parents`. Vous pouvez le laisser vide. Si vous le saisissez, il est remis en forme (« temps méridien » devient `temps_meridien`). |
 
 Règles à respecter une fois des réponses reçues :
 

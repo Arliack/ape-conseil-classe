@@ -66,6 +66,17 @@ test('identifiants fabriqués, stables et uniques', () => {
   assert.deepEqual(res.ids, ['la_cantine', 'la_cantine_2', 'nom_2']);
 });
 
+test('identifiant saisi à la main avec accents ou espaces : remis en forme', () => {
+  const res = construire([
+    ligne('Collège', 'Le collège', 'Échelle 4 niveaux', '', { ID: 'collège' }),
+    ligne('Collège', 'Le midi', 'Échelle 4 niveaux', '', { ID: 'Temps méridien' }),
+  ]);
+  assert.deepEqual(res.erreurs, []);
+  assert.deepEqual(res.ids, ['college', 'temps_meridien']);
+  assert.deepEqual(res.data.questionnaires.parents.questions.slice(2).map((q) => q.id), ['college', 'temps_meridien']);
+  assert.match(construire([ligne('A', 'Q1', 'Texte', '', { ID: 'Collège' }), ligne('A', 'Q2', 'Texte', '', { ID: 'college' })]).erreurs[0], /déjà utilisé/);
+});
+
 test('réponses possibles, listes, précision, condition, masquage', () => {
   const res = construire([
     ligne('Scolarité', 'Des difficultés ?', 'Choix unique', 'Non ; Oui', { OBLIGATOIRE: true, ID: 'diff' }),
@@ -118,7 +129,6 @@ test('erreurs signalées avec le numéro de ligne', () => {
   assert.match(erreurs([ligne('A', 'Q', 'Texte', '', { AFFICHER_SI: 'n importe quoi' })]), /doit ressembler/);
   assert.match(erreurs([ligne('A', 'Q', 'Texte', '', { MAX: 5000 })]), /max caractères/);
   assert.match(erreurs([ligne('A', 'Q', 'Texte', '', { ID: 'classe' })]), /réservé/);
-  assert.match(erreurs([ligne('A', 'Q', 'Texte', '', { ID: 'Mauvais id' })]), /invalide/);
   assert.match(erreurs([ligne('A', 'Q1', 'Texte', '', { ID: 'x' }), ligne('A', 'Q2', 'Texte', '', { ID: 'x' })]), /Ligne 3 : identifiant « x » déjà utilisé/);
   assert.match(erreurs([ligne('A', 'Q', 'Choix unique', 'Non ; Oui'), ligne('A', 'R', 'Texte', '', { AFFICHER_SI: 'q = Peut-être' })]), /n'est pas une réponse possible/);
   assert.match(erreurs([]), /Aucune question/);

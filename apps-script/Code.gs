@@ -183,7 +183,12 @@ function json_(obj) {
  */
 function construireQuestionnaire_(lignes, config, version) {
   var erreurs = [];
-  var ids = lignes.map(function (l) { return String(l[COL.ID] || '').trim(); });
+  // Un identifiant saisi à la main est remis en forme (« temps méridien » → « temps_meridien »),
+  // puis réécrit dans la colonne à la publication.
+  var ids = lignes.map(function (l) {
+    var saisi = String(l[COL.ID] || '').trim();
+    return saisi ? identifiant_(saisi) : '';
+  });
   var pris = IDS_RESERVES.slice();
   ids.forEach(function (id) { if (id) pris.push(id); });
   var listes = { classes: config.classes, matieres: config.matieres };
@@ -206,7 +211,6 @@ function construireQuestionnaire_(lignes, config, version) {
 
     // Identifiant : celui de la colonne L, sinon fabriqué à partir de la question.
     var id = ids[i];
-    if (id && !/^[a-z][a-z0-9_]*$/.test(id)) { erreurs.push(n + 'identifiant « ' + id + ' » invalide (minuscules, chiffres et _).'); return; }
     if (id && (dejaVus[id] || IDS_RESERVES.indexOf(id) !== -1 || /_precision$/.test(id))) {
       erreurs.push(n + 'identifiant « ' + id + ' » déjà utilisé ou réservé.'); return;
     }
